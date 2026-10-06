@@ -26,6 +26,8 @@ Need a control that isn't in `src/components/ui/`? Add it with `pnpm dlx shadcn@
 
 The CLI puts `shadow-xs`/`shadow-sm` on inputs, textareas and cards. [`DESIGN.md`](DESIGN.md) keeps shadows for things that genuinely float — dialogs, dropdowns, toasts. Strip them.
 
+The CLI may also import `cn` from the `cn` npm package and add that package to `apps/frontend/package.json` and `pnpm-lock.yaml`. Every kit file uses `cn` from `@/lib/utils`, and a new dependency is a separate decision. Point the import back at `@/lib/utils`, revert both files, then run `pnpm install --frozen-lockfile --offline` to prune the stray package.
+
 ### The app is already running
 
 Assume the dev servers are up. If something is listening on the app's ports, that is this application: use it. Don't start a second instance, don't restart it, don't run `pnpm dev`.
