@@ -51,11 +51,23 @@ describe('QuacksController', () => {
       aQuack({ id: 'q1', mood: null }),
     ]);
 
-    const quacks = await new QuacksController(service).list();
+    const quacks = await new QuacksController(service).list({
+      id: 'u1',
+    } as Identity);
 
     expect(quacks.map(({ id, mood }) => ({ id, mood }))).toEqual([
       { id: 'q2', mood: 'sad' },
       { id: 'q1', mood: null },
     ]);
+  });
+
+  it('hands the signed-in user and the search to the service', async () => {
+    const service = mock<QuacksService>();
+    service.getQuacks.mockResolvedValue([aQuack()]);
+    const user = { id: 'u1' } as Identity;
+
+    await new QuacksController(service).list(user, 'bread');
+
+    expect(service.getQuacks).toHaveBeenCalledWith(user, 'bread');
   });
 });

@@ -89,4 +89,54 @@ describe('QuackRepository', () => {
       { id: 'q1', mood: null },
     ]);
   });
+
+  describe('searching', () => {
+    // One word matches when it is in the text, the author's name or their
+    // username, whatever the case.
+    const matches = (contains: string): object => ({
+      OR: [
+        { text: { contains, mode: 'insensitive' } },
+        { user: { name: { contains, mode: 'insensitive' } } },
+        { user: { username: { contains, mode: 'insensitive' } } },
+      ],
+    });
+
+    beforeEach(() => {
+      quack.findMany.mockResolvedValue([]);
+    });
+
+    it('does not filter without words', async () => {
+      await repository.getQuacks();
+
+      expect(quack.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { AND: [] } }),
+      );
+    });
+
+    it('wants every word to match, newest quack first', async () => {
+      await repository.getQuacks(['duck', 'coffee']);
+
+      expect(quack.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { AND: [matches('duck'), matches('coffee')] },
+          orderBy: { createdAt: 'desc' },
+        }),
+      );
+    });
+
+    // Prisma passes `contains` on to ILIKE unescaped, so these would otherwise
+    // be wildcards and `%` would match every quack.
+    it.each([
+      ['%', '\\%'],
+      ['_', '\\_'],
+      ['\\', '\\\\'],
+      ['100%_off\\', '100\\%\\_off\\\\'],
+    ])('matches %j literally', async (word, escaped) => {
+      await repository.getQuacks([word]);
+
+      expect(quack.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { AND: [matches(escaped)] } }),
+      );
+    });
+  });
 });

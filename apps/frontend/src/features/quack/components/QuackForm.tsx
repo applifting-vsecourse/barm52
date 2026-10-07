@@ -46,9 +46,13 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>
 
-type QuackFormProps = { className?: string }
+type QuackFormProps = {
+  className?: string
+  // Called once a quack has been posted, never after a failed attempt.
+  onPosted?: () => void
+}
 
-export function QuackForm({ className }: QuackFormProps) {
+export function QuackForm({ className, onPosted }: QuackFormProps) {
   const addQuack = useAddQuack()
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -61,7 +65,12 @@ export function QuackForm({ className }: QuackFormProps) {
   const handleSubmit = ({ text, mood }: FormValues) => {
     addQuack.mutate(
       { text, mood: mood === NO_MOOD ? undefined : mood },
-      { onSuccess: () => form.reset() },
+      {
+        onSuccess: () => {
+          form.reset()
+          onPosted?.()
+        },
+      },
     )
   }
 
