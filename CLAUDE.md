@@ -33,3 +33,9 @@ The CLI may also import `cn` from the `cn` npm package and add that package to `
 Assume the dev servers are up. If something is listening on the app's ports, that is this application: use it. Don't start a second instance, don't restart it, don't run `pnpm dev`.
 
 Don't reach for the browser to check your own work. Tests and type-checks are the evidence; open the running app when asked to, not on your own initiative.
+
+### Extending an endpoint must not change what it already accepts
+
+`QuacksController` — and any controller copied from it — runs a controller-level `ValidationPipe` with `forbidNonWhitelisted: true`. Give a handler that had no `@Query()` or `@Body()` a DTO, and every parameter the DTO doesn't list turns from ignored into a 400. Tests and `pnpm check-all` stay green unless a test pins it, so nothing else will notice.
+
+Before changing an existing endpoint's inputs, check what `main` does with them (`git show main:<file>`). Validate a new parameter on its own, with a pipe on `@Query('q', …)` rather than a DTO for the whole query string — see `search-query.pipe.ts`.

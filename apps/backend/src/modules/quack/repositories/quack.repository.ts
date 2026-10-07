@@ -1,5 +1,6 @@
 import { PrismaService } from '@/core/prisma/prisma.service';
 import {
+  Prisma,
   Quack as PrismaQuack,
   User as PrismaUser,
 } from '@/generated/prisma/client';
@@ -24,6 +25,21 @@ const mapPrismaQuackToDomain = (
     : undefined,
 });
 
+// Prisma hands `contains` to ILIKE as it is, so a typed %, _ or \ would act as a
+// wildcard instead of matching itself.
+const escapeLike = (word: string): string => word.replace(/[\\%_]/g, '\\$&');
+
+const matchesWord = (word: string): Prisma.QuackWhereInput => {
+  const contains = escapeLike(word);
+  return {
+    OR: [
+      { text: { contains, mode: 'insensitive' } },
+      { user: { name: { contains, mode: 'insensitive' } } },
+      { user: { username: { contains, mode: 'insensitive' } } },
+    ],
+  };
+};
+
 /**
  * If you decide to choose a different ORM or database, you should only need to change the repository files methods implementation.
  * Inject what you need instead of PrismaService and re-implement the methods and model mapping.
@@ -32,8 +48,11 @@ const mapPrismaQuackToDomain = (
 export class QuackRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getQuacks(): Promise<Quack[]> {
+  // Every quack, or only those where every word matches somewhere. No words
+  // means no filter.
+  async getQuacks(words: string[] = []): Promise<Quack[]> {
     const quacks = await this.prisma.quack.findMany({
+      where: { AND: words.map(matchesWord) },
       include: { user: true },
       orderBy: { createdAt: 'desc' },
     });

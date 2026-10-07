@@ -23,11 +23,11 @@ const created: Quack = {
 // own, so only the first one is the form's.
 const posted = () => vi.mocked(addQuack).mock.calls[0]?.[0]
 
-const renderForm = () => {
+const renderForm = (props: { onPosted?: () => void } = {}) => {
   const user = userEvent.setup()
   render(
     <QueryClientProvider client={new QueryClient()}>
-      <QuackForm />
+      <QuackForm {...props} />
     </QueryClientProvider>,
   )
   return user
@@ -91,6 +91,39 @@ describe("QuackForm", () => {
     await waitFor(() => expect(addQuack).toHaveBeenCalledOnce())
     // the form's own "none" must not leak into the request
     expect(posted()).toEqual({ text: "Just a thought" })
+  })
+
+  it("tells its parent once a quack has been posted", async () => {
+    const onPosted = vi.fn()
+    const user = renderForm({ onPosted })
+
+    await user.type(screen.getByLabelText("New quack"), "Just a thought")
+    await user.click(screen.getByRole("button", { name: "Quack" }))
+
+    await waitFor(() => expect(onPosted).toHaveBeenCalledOnce())
+  })
+
+  it("does not tell its parent about a quack that was not posted", async () => {
+    const onPosted = vi.fn()
+    const user = renderForm({ onPosted })
+
+    await user.click(screen.getByRole("button", { name: "Quack" }))
+    expect(await screen.findByText("Write something first")).toBeInTheDocument()
+
+    expect(addQuack).not.toHaveBeenCalled()
+    expect(onPosted).not.toHaveBeenCalled()
+  })
+
+  it("does not tell its parent when the server turns the quack down", async () => {
+    vi.mocked(addQuack).mockRejectedValue(new Error("Server unreachable"))
+    const onPosted = vi.fn()
+    const user = renderForm({ onPosted })
+
+    await user.type(screen.getByLabelText("New quack"), "Just a thought")
+    await user.click(screen.getByRole("button", { name: "Quack" }))
+
+    expect(await screen.findByText("Server unreachable")).toBeInTheDocument()
+    expect(onPosted).not.toHaveBeenCalled()
   })
 
   it("starts the next quack without a mood", async () => {

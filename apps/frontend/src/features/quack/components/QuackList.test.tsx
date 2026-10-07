@@ -66,6 +66,75 @@ describe("QuackList", () => {
     expect(screen.getAllByText("·")).toHaveLength(1)
   })
 
+  describe("when a search finds nothing", () => {
+    it("says what was searched for, and offers to clear it", async () => {
+      const onClearSearch = vi.fn()
+      render(
+        <QuackList
+          quacks={[]}
+          search="xyzzy"
+          onClearSearch={onClearSearch}
+        />,
+      )
+
+      expect(screen.getByText('No quacks match "xyzzy".')).toBeInTheDocument()
+      expect(screen.queryByText("No quacks yet. Post the first one.")).not.toBeInTheDocument()
+
+      await userEvent.click(screen.getByRole("button", { name: "Clear search" }))
+      expect(onClearSearch).toHaveBeenCalledOnce()
+    })
+
+    it("echoes the search exactly as typed", () => {
+      render(
+        <QuackList
+          quacks={[]}
+          search={'@Duck  "Coffee"'}
+        />,
+      )
+
+      // double space and quotes kept; getByText would collapse the spacing
+      expect(screen.getByText(/No quacks match/).textContent).toBe(
+        'No quacks match "@Duck  "Coffee"".',
+      )
+    })
+
+    it("keeps the plain empty feed message when no search is active", () => {
+      render(<QuackList quacks={[]} />)
+
+      expect(screen.getByText("No quacks yet. Post the first one.")).toBeInTheDocument()
+      expect(screen.queryByText(/No quacks match/)).not.toBeInTheDocument()
+      expect(screen.queryByRole("button", { name: "Clear search" })).not.toBeInTheDocument()
+    })
+
+    it.each([
+      ["while the results are loading", { isLoading: true }],
+      ["when the request failed", { error: new Error("Server unreachable") }],
+    ])("says nothing about the search %s", (_when, props) => {
+      render(
+        <QuackList
+          quacks={[]}
+          search="xyzzy"
+          {...props}
+        />,
+      )
+
+      expect(screen.queryByText(/No quacks match/)).not.toBeInTheDocument()
+      expect(screen.queryByRole("button", { name: "Clear search" })).not.toBeInTheDocument()
+    })
+
+    it("shows the matches instead of the message when there are some", () => {
+      render(
+        <QuackList
+          quacks={[quack()]}
+          search="quack"
+        />,
+      )
+
+      expect(screen.getByText("quack quack")).toBeInTheDocument()
+      expect(screen.queryByText(/No quacks match/)).not.toBeInTheDocument()
+    })
+  })
+
   it("shows an error with a working reload button", async () => {
     const onReload = vi.fn()
     render(
