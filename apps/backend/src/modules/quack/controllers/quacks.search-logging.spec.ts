@@ -1,4 +1,4 @@
-// The "Usage logging" section of story.md, requirements U1 to U5. Product reads
+// The "Usage logging" section of story-search.md, requirements U1 to U5. Product reads
 // "distinct users per day who searched" from the log, so this is the evidence
 // that a search leaves exactly one line behind, that the line holds no query
 // text, and that nothing else leaves one.
