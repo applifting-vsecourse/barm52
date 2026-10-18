@@ -4,7 +4,7 @@ Implementační plán ke [`story.md`](story.md) (Core A–F, rozšíření X1–
 
 ## Postup a commity
 
-Stav: hotovo kromě bodu 5 (seed a DB testy se dokončují). Backend (Core + X1–X3) a frontend (Core + X1–X3) jsou každý v jednom commitu, oba zelené.
+Stav: hotovo. Backend (Core + X1–X3), frontend (Core + X1–X3) a seed s DB testy jsou každý ve vlastním commitu. `pnpm check-all` a `pnpm backend test:db` jsou zelené.
 
 Původní pořadí:
 
