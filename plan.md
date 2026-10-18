@@ -4,7 +4,9 @@ Implementační plán ke [`story.md`](story.md) (Core A–F, rozšíření X1–
 
 ## Postup a commity
 
-Dodává se po částech, po každé je `pnpm check-all` zelený a commit:
+Stav: hotovo kromě bodu 5 (seed a DB testy se dokončují). Backend (Core + X1–X3) a frontend (Core + X1–X3) jsou každý v jednom commitu, oba zelené.
+
+Původní pořadí:
 
 1. **Datový model + migrace** pro celou story najednou. Sloupce rozšíření mají v DB „nejméně omezující“ výchozí hodnoty (bez konce, výsledky hned, návrhy vypnuty).
 2. **Core backend**: vytvoření ankety s quackem (atomicky), zobrazení v `GET /api/quacks`, hlasování, logy `poll_created` / `poll_vote`.
@@ -39,8 +41,8 @@ Nový `PollsController` na `quacks/:quackId/poll` (guard + ValidationPipe jako u
 
 ```
 { endsAt: string|null, ended: boolean, resultsVisibility, suggestions,
-  resultsVisible: boolean, totalVotes: number|null, myVoteOptionId: string|null,
-  canSuggest: boolean, pendingCount: number|null,
+  isAuthor: boolean, resultsVisible: boolean, totalVotes: number|null,
+  myVoteOptionId: string|null, canSuggest: boolean,
   options: [{ id, text, votes: number|null }],          // jen zveřejněné, podle position
   pendingSuggestions: [{ id, text }] }                  // autor: všechny; navrhovatel: svůj; ostatní: []
 ```
@@ -75,5 +77,9 @@ Nový `PollsController` na `quacks/:quackId/poll` (guard + ValidationPipe jako u
 - Duplicita odpovědí ve formuláři se hlásí pod pozdějším z obou polí.
 - Při `"Not allowed"` vrací `POST …/options` `403` (story kód neurčuje).
 - Hlášku o limitu na osobu (X3.4) story neurčuje: `"You already have an answer in this poll"`.
+- Pole pro návrh má viditelný popisek `"Your answer"` (DESIGN.md vyžaduje `<label>`), tlačítko je `"Suggest an answer"`.
+- Pole odpovědí ve formuláři mají popisky `"Option 1"` … `"Option 10"`.
+- Hlavička pro autora v jednotném čísle zní `"1 suggestion awaiting approval"`, jinak `"N suggestions awaiting approval"`.
+- Skončená anketa nemá tlačítka. Řádky jen zobrazují výsledky a vlastní hlas.
 - Pokud selže poslední volba po předchozím neúspěšném kliku, UI se vrátí do posledního **potvrzeného** stavu ze serveru. Tak platí D3 („UI se nikdy neliší od serveru“).
 - Seed se ověřuje na oddělené DB. Dev DB se neresetuje, migrace se na ni jen aplikuje.

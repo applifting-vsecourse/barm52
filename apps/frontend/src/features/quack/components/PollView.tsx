@@ -43,7 +43,7 @@ export function PollView({ quackId, poll: serverPoll }: PollViewProps) {
                       aria-hidden
                       className="size-4"
                     />
-                    <span className="sr-only">Your vote:</span>
+                    <span className="sr-only">Your vote</span>
                   </>
                 ) : null}
                 <span className="break-words">{option.text}</span>

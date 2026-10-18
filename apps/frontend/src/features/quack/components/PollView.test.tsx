@@ -126,7 +126,7 @@ describe("a poll in the feed", () => {
 
     expect(answer("Sushi")).toHaveAttribute("aria-pressed", "true")
     expect(answer("Pizza")).toHaveAttribute("aria-pressed", "false")
-    expect(within(answer("Sushi")).getByText("Your vote:")).toHaveClass("sr-only")
+    expect(within(answer("Sushi")).getByText("Your vote")).toHaveClass("sr-only")
     expect(answer("Sushi").tagName).toBe("BUTTON")
   })
 
@@ -424,7 +424,7 @@ describe("the end (X1)", () => {
 
     expect(await screen.findByText("Ended")).toBeInTheDocument()
     expect(screen.queryByRole("button", { name: /Pizza/ })).not.toBeInTheDocument()
-    expect(screen.getByText("Your vote:")).toBeInTheDocument()
+    expect(screen.getByText("Your vote")).toBeInTheDocument()
     expect(screen.getByText("3 votes")).toBeInTheDocument()
   })
 
