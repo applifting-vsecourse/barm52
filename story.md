@@ -1,105 +1,204 @@
-# Story: Search quacks
+# Ankety v quacích
 
-**Who:** A signed-in Quacker user who saw a quack last week and remembers a word from it, or who wrote it.
-**What:** They type that word or name into a search box on the feed and see only the matching quacks.
-**Why:** They can find the quack again without scrolling the whole feed.
-**For the PO:** The team can tell whether people use search, measured as distinct users per day who searched. A developer provides that number on request.
+Status: **schváleno, bez otevřených rozhodnutí**. Implementace ani `plan.md` zatím neexistují.
 
-## Acceptance criteria (verified in the browser)
+## Příběh
 
-Counts assume a fresh seed.
+Lidé se ve feedu ptají (např. „Kam půjdeme na oběd?“) a odpovědi pak počítají ručně. Někdo se přepočítá a původní příspěvek zapadne pod odpověďmi.
 
-**Search box**
+**Jako** přihlášený uživatel Quackeru
+**chci** u quacku položit otázku s několika odpověďmi k výběru, nechat ostatní vybrat jednu a vidět, kolik lidí která odpověď získala,
+**abychom** měli správná čísla bez ručního počítání a otázka nezapadla.
 
-1. On `/quacks`, between the post form and the list, there is a text field with the visible label "Search quacks" and the placeholder "A word or a name". Nothing else is added: no submit button, no new route, no new nav item.
-2. Clicking the label focuses the field.
-3. The field is present even when the feed has no quacks.
-4. The field is not focused when the page opens.
-5. The field accepts at most 100 characters. Pasted text longer than that is cut to 100.
-6. Pressing Enter in the field does not reload the page or change the list.
+Cíl MVP: zjistit, jestli lidé ankety používají. Proto se měří použití (viz „Měření“). Nic navíc oproti tomuto dokumentu se nedělá.
 
-**Matching**
+## Rozsah a členění
 
-7. While the user keeps typing with gaps shorter than 300 ms, the list doesn't update. Once 300 ms pass after the last typed or deleted character, it updates with no further action.
-8. A quack matches a word if the word appears in its text, its author's name or its author's @username. `bread` shows 3 quacks: two by The Bread Critic and the Pond Admin "bread situation" quack.
-9. A word can match part of a longer word. `crit` shows the 2 Bread Critic quacks.
-10. Matching ignores case, including accented letters. After posting a quack containing "Žluťoučký", searching `ŽLUŤOUČKÝ` finds it.
-11. With several words, every word must match somewhere, in any order. `duck coffee` and `coffee duck` both show exactly 1 quack, the Caffeinated Duck coffee spill.
-12. Every leading `@` is dropped from any word. `@caffeinated` and `@@caffeinated` both show the 3 Caffeinated Duck quacks, and `coffee @duck` behaves like `duck coffee`.
-13. A blank query, a whitespace-only query, or one made only of `@` signs shows the full feed and no empty-result line.
-14. `%` and `_` are matched literally. `%` alone shows the empty-result line, not every quack.
-15. Mood is not searched. `happy` shows the empty-result line.
-16. Matches are newest first. Each renders exactly like a feed item, with no extra heading, summary line, highlight, count or match indicator.
+Dokument má dvě části, které jdou dodat samostatně:
 
-**Empty result**
+- **Core** (sekce A–F): původní zadání. Vytvoření ankety, zobrazení, hlasování, změna hlasu, viditelné selhání, správnost čísel.
+- **Rozšíření** (sekce X1–X3): nastavení, které volí autor ankety: trvání, viditelnost výsledků a návrhy nových odpovědí od ostatních.
 
-17. When a non-blank search matches nothing, the list area shows the line `No quacks match "xyzzy".`, with the query trimmed and echoed as typed in straight double quotes. The `@`, case and inner spacing are kept.
-18. Under that line is an outline button, "Clear search".
-19. A long query wraps in that line and causes no horizontal scroll.
-20. The post form and search box stay visible in the empty-result state.
-21. With no quacks at all, a non-blank search shows the line from AC17. "No quacks yet. Post the first one." appears when there are no quacks and no search is active: the box is empty, only spaces, or only `@` signs.
-22. Clicking "Clear search" empties the box at once, without waiting for the 300 ms pause, shows the full feed and puts keyboard focus in the search box.
+Pravidlo pro dodání po částech: anketa vytvořená dřív, než je dodáno dané nastavení, se chová jako s jeho „nejméně omezující“ hodnotou. Tedy: bez konce, výsledky hned, návrhy vypnuty. Výchozí hodnoty ve formuláři (tabulka níže) platí pro nové ankety po dodání příslušného rozšíření.
 
-**Clearing and posting**
+Texty v uvozovkách (`"…"`) jsou závazné texty rozhraní. Aplikace je dnes anglicky, ankety také. Ostatní popisy jsou chování, nikoli text.
 
-23. There is no other clear control. While results show, the user clears by deleting the text.
-24. After a successful post, the box empties at once, without waiting for the 300 ms pause, and the full feed shows with the new quack at the top.
-25. If the post form is submitted and fails, for example submitted empty, the search stays exactly as typed and the filtered list is untouched.
+## Slovník
 
-**Lifecycle**
+- **Anketa**: volitelná příloha quacku. **Text quacku je otázka.** Quack bez ankety se nemění.
+- **Odpověď**: jedna z možností ankety. Je buď _zveřejněná_ (lze pro ni hlasovat), nebo _čekající návrh_ (viz X3).
+- **Hlas**: volba jednoho uživatele v jedné anketě. Uživatel má v anketě nejvýše jeden hlas.
+- **Autor**: autor quacku s anketou.
+- **Skončená anketa**: anketa, jejíž konec podle času serveru nastal (viz X1). Anketa bez konce neskončí nikdy.
 
-26. The query is not kept anywhere. The URL doesn't change while typing. Reloading, or leaving `/quacks` and coming back, shows an empty box and the full feed.
-27. With the network throttled, while a new search loads the previous list stays visible. The empty-result line doesn't appear until the new results arrive.
-28. If the request for the current search fails, including a refetch on tab return, the feed's existing "Couldn't load quacks" alert shows with its message and a Reload button. Reload retries the current search. The typed text stays and no list is shown.
-29. A matching quack posted from another account while the tab was in the background appears when the tab is shown again.
-30. A signed-in user finds quacks by any author.
+## Nastavení ankety (přehled)
 
-**Reaching the server**
+| Nastavení                       | Hodnoty                                                               | Výchozí pro nové ankety      | Nejméně omezující hodnota (starší / dosud nedodané) |
+| ------------------------------- | --------------------------------------------------------------------- | ---------------------------- | --------------------------------------------------- |
+| Trvání (X1)                     | `"1 hour"`, `"1 day"`, `"7 days"`, `"No end"`                         | `"1 day"`                    | `"No end"`                                          |
+| Výsledky (X2)                   | `"Show results immediately"`, `"Show results after voting"`           | `"Show results immediately"` | hned                                                |
+| Nové odpovědi od ostatních (X3) | `"Not allowed"`, `"Published immediately"`, `"Author approves first"` | `"Not allowed"`              | vypnuto                                             |
 
-31. Typing non-blank text sends that text, trimmed, to the server. The Network tab shows a request to the quacks endpoint carrying it. A blank or whitespace-only box sends no search text.
+Nastavení se volí při vytvoření a poté se **nemění**.
 
-## Usage logging: mandatory, verified outside the browser
+---
 
-This is not a browser criterion, because the PO's measure isn't visible in the browser. It is still part of the story, and the story isn't done without it.
+# Core
 
-**Requirements**
+## A. Vytvoření ankety
 
-- **U1.** For every search from a signed-in user with a non-blank query, the backend writes exactly one log line. "Non-blank" means at least one word remains after trimming, splitting on spaces and dropping every leading `@` from each word.
-- **U2.** The line carries a fixed event name, the user id and the time of the search as an ISO-8601 UTC timestamp. For example: `quack_search user=<userId> at=2026-10-08T09:15:00.000Z`. The backend's own log line never contains any part of the query text.
-- **U3.** The line is written whether or not anything matches. A lookup that then fails still counts as a search.
-- **U4.** No line is written for any of these:
-  - a blank, whitespace-only or `@`-only query
-  - a request with no query
-  - a request rejected for validation, such as over 100 characters
-  - a request without a valid session
-- **U5.** Each request writes its own line. Nothing is deduplicated, and tab-refocus refetches count.
+- **A1**: _Given_ přihlášený uživatel ve formuláři nového quacku, _when_ klikne na `"Add poll"`, _then_ se objeví část pro anketu se dvěma prázdnými poli odpovědí a tlačítkem `"Add option"`. Tlačítko se přitom změní na `"Remove poll"`. Jeho stisk anketu zase odebere (včetně zadaných odpovědí) a quack se odešle bez ní.
+- **A2**: Odpovědí je **2 až 10**. `"Add option"` přidá pole až do 10, pak je nedostupné. Každé pole nad minimum 2 jde odebrat tlačítkem s `aria-label` `"Remove option"`.
+- **A3**: _Given_ text quacku platný podle stávajících pravidel (1–280 znaků po ořezání mezer) a platné odpovědi, _when_ uživatel odešle formulář, _then_ vznikne jeden quack s anketou, autor je z přihlášení (nikdy z těla požadavku) a pořadí odpovědí je pořadí zadání.
+- **A4** (validace, klient **i** server; chyba u klienta pod polem, ne jen jako alert):
+  - každá odpověď má po ořezání mezer 1–80 znaků; prázdné pole je chyba `"Fill in or remove this option"`, neignoruje se mlčky;
+  - dvě odpovědi se stejným textem po ořezání mezer a bez ohledu na velikost písmen jsou chyba `"Answers must be different"`;
+  - méně než 2 nebo více než 10 odpovědí je chyba;
+  - server při porušení vrací `400` a **nevznikne nic**, ani quack bez ankety (vytvoření je atomické).
+- **A5**: Odesílací tlačítko ukazuje stav pending a je při odesílání zakázané. Selže-li požadavek, zůstane zadaný obsah formuláře zachován a chyba se zobrazí v existujícím alertu formuláře.
+- **A6**: Po úspěchu se nový quack s anketou objeví ve feedu nahoře, formulář se vyprázdní včetně části pro anketu a stávající chování „odeslání ukončí hledání“ zůstane.
+- **A7**: Mood se u quacku s anketou chová stejně jako dnes (volitelný).
+- **A8**: Nepřihlášený požadavek na vytvoření vrací `401`, jako dnes.
 
-**Verification (both required)**
+## B. Zobrazení ankety ve feedu
 
-- **V1.** An automated backend test in the existing Jest suite, run by `pnpm backend test` and `pnpm check-all`, covers U1 to U5. It asserts that a distinctive query such as `zebra` appears in no logged message, and it fails if the line stops being written. This is the builder's evidence.
-- **V2.** A reviewer's check in the backend console of the running app:
-  - a search in the browser produces one `quack_search` line with their user id
-  - emptying the box produces none
-  - returning to the tab while a search shows produces another line
+- **B1**: Quack s anketou ukazuje anketu **uvnitř své položky feedu** pod textem, bez vlastní karty nebo rámečku (DESIGN.md zakazuje vnořené karty). Stejná položka se používá i ve výsledcích hledání.
+- **B2**: Každý řádek odpovědi ukazuje text odpovědi, **počet hlasů**, **procento** a **pruh**. Procento je celé číslo, počítá se `počet / celkem × 100` a zaokrouhluje se obvyklým zaokrouhlením (.5 nahoru). Při celkem 0 hlasech je 0 %. Šířka pruhu je rovna zobrazenému procentu. Součet procent smí být 99–101, **rozhodují počty**.
+- **B3**: Pod odpověďmi je celkový počet hlasů: `"0 votes"`, `"1 vote"`, `"N votes"`.
+- **B4**: Hlas přihlášeného uživatele je vyznačen ikonou zaškrtnutí **a** textem pro čtečky `"Your vote"`. Samotná barva stav nenese.
+- **B5**: Pořadí odpovědí je pevné (pořadí zadání, resp. zveřejnění) a při hlasování se **nemění**, i když se pořadí podle počtů změní.
+- **B6**: Hlasy jsou **anonymní**. Odpověď API nikdy neobsahuje, kdo hlasoval pro kterou odpověď. Obsahuje pouze volbu přihlášeného uživatele samotného.
+- **B7**: Anketa je ovladatelná klávesnicí, stav „vybráno“ je zpřístupněn čtečkám, ovladače jsou `<button>`, focus ring zůstává viditelný.
+- **B8**: Seznam má stále tři stavy (načítání / prázdný / chyba) podle DESIGN.md. Anketa je součást položky a vlastní další stav seznamu nepřidává.
 
-**Counting:** A developer counts distinct `user=` values per day on request, using a plain text search of the logs for `quack_search`. No dashboard, no report, no new UI.
+## C. Hlasování a změna hlasu
 
-**Preconditions, outside this story**
+- **C1** (první hlas): _Given_ otevřená anketa, ve které uživatel nehlasoval, _when_ klikne na odpověď, _then_ je jeho hlas uložen: počet dané odpovědi +1, celkem +1, odpověď je vyznačena.
+- **C2** (změna): _Given_ uživatel s hlasem pro odpověď A, _when_ klikne na odpověď B, _then_ se hlas **přesune**: A −1, B +1, celkem beze změny.
+- **C3** (stejná odpověď): klik na již zvolenou odpověď nic nemění. Neodešle se změna, počty zůstanou. Přijde-li takový požadavek na server, odpoví úspěchem a nic nezmění (idempotence).
+- **C4**: Hlas **nelze stáhnout**. Po prvním hlasu platí vždy právě jedna volba.
+- **C5**: Autor smí hlasovat i měnit hlas ve své anketě.
+- **C6** (server validuje): hlasování pro neexistující quack, pro quack bez ankety, pro odpověď, která do té ankety nepatří, nebo pro čekající (nezveřejněný) návrh vrací `404` a nic nezmění. Nepřihlášený dostane `401`.
 
-- The backend logs are kept for the whole test period. The developer who counts checks this before the test starts.
-- The story covers only the backend's own log line. Anything in front of the backend that logs URLs, such as a proxy or the platform, may record the query text, because the text travels in the request URL.
+## D. Okamžitost
 
-## Out of scope
+- **D1**: _Given_ požadavek na hlas ještě nedoběhl (např. server uměle zpožděn), _when_ uživatel klikne, _then_ UI už **ve stejné interakci** ukazuje novou volbu a upravené počty (C1/C2 včetně součtu a procent). Na server se nečeká.
+- **D2**: Po úspěšné odpovědi serveru se zobrazené počty nahradí **hodnotami ze serveru**. Zahrnují i hlasy ostatních, které mezitím přišly.
+- **D3** (rychlé po sobě jdoucí kliky): _Given_ uživatel klikne na A a ještě před doběhnutím na B, _then_ po doběhnutí všeho je stav na serveru **volba B** (poslední klik vyhrává) a UI zobrazuje totéž jako čerstvě načtená data. UI nikdy neskončí ve stavu, který se liší od serveru. Chyba se zobrazí jen tehdy, když se **poslední** volba uživatele neuložila.
 
-- Date filter, mood filter, sort choice, pagination or "load more".
-- Forgiving matching (typos, plurals, stemming), autocomplete, search history, saved searches, keyboard shortcuts, and search in the header or on other pages.
-- Highlighting matched words, a result count (visible or hidden), screen-reader announcements of result changes, accent-insensitive matching, and keeping the search in the URL.
-- Searching the date shown on each quack. Only the text, name and @username are matched.
-- A success threshold, a review date or a removal plan. The story ends at the usage log.
-- Analytics tools, dashboards, a PO-facing usage report, and logging the query text in the app.
-- Log retention, and what proxies or the platform in front of the backend log.
+## E. Viditelné selhání
 
-## Implementation notes (not product decisions)
+- **E1**: _Given_ selhání požadavku na hlas (síťová chyba, `5xx`, jakákoli `4xx`), _then_ se UI vrátí **přesně** do stavu před posledním klikem (vybraná odpověď i počty) a **u ankety** se zobrazí trvalá chyba (`role="alert"`) s textem `"Your vote wasn't saved. Try again."`.
+- **E2**: Chyba zůstane, dokud uživatel v této anketě znovu nehlasuje nebo dokud se hlas neuloží. Samotný toast nestačí, protože zmizí. Opakováním je další klik na odpověď.
+- **E3**: Pokud server odmítne hlas, protože anketa skončila, UI přepne anketu do stavu „skončená“ a ukáže `"This poll has ended."` místo obecné chyby (viz X1).
+- **E4**: Selhání jedné ankety neovlivní ostatní ankety ve feedu.
 
-- Search runs on the server, as a `q` parameter on the existing quacks list endpoint. The server rejects over 100 characters with 400.
-- The field and label come from the existing kit, with no shadows. Signed-out behavior is unchanged: redirect to login, and 401 from the API.
+## F. Správnost čísel pro všechny
+
+Invarianty, které platí v každém okamžiku a po každé operaci (ověřují se na úrovni dat i API):
+
+- **F1**: Počet u odpovědi = počet uživatelů, jejichž **aktuální** hlas je tato odpověď. Součet počtů = celkový počet hlasů = počet různých hlasujících.
+- **F2** (jedna osoba, jeden hlas): databáze to vynucuje (jedinečnost dvojice uživatel + anketa), nejen kód. Dva souběžné požadavky téhož uživatele na různé odpovědi skončí **jedním** hlasem a konzistentními počty.
+- **F3** (žádné ztracené hlasy): N různých uživatelů hlasuje souběžně pro tutéž odpověď (test např. N = 20) a výsledek je přesně N.
+- **F4** (změna je atomická): změna hlasu je jedna transakce. Čtení během ní nikdy neuvidí uživatele započítaného 0× ani 2×.
+- **F5**: Počty vracené v jedné odpovědi (seznam i hlasování) jsou z jednoho konzistentního čtení, takže F1 platí uvnitř každé odpovědi.
+- **F6** (čerstvost pro ostatní): počty se ostatním obnoví při návratu na kartu a po jejich vlastní akci (stávající pravidlo refetch při focusu a invalidace po mutaci). **Žádný polling ani push.** Starší zobrazení se tedy opraví při nejbližším refetchi, ale nikdy neukazuje součty, které by neodpovídaly F1 v okamžiku načtení.
+
+---
+
+# Rozšíření
+
+## X1. Trvání ankety
+
+- **X1.1**: Formulář má pole `"Poll length"` s hodnotami `"1 hour"`, `"1 day"` (výchozí), `"7 days"`, `"No end"`. Konec se počítá **na serveru** (čas vytvoření + délka), klient neposílá časové razítko. Pro `"No end"` konec neexistuje.
+- **X1.2**: Otevřená anketa s koncem ukazuje zbývající čas relativně (např. `"Ends in 3 hours"`), skončená ukazuje `"Ended"`. Anketa bez konce nic z toho neukazuje.
+- **X1.3** (po skončení): hlasování, změna hlasu, návrh nové odpovědi i schválení či zamítnutí návrhu se odmítnou odpovědí `409` s rozlišitelným důvodem `poll_ended` a **nic se nezmění**. UI ukazuje výsledky všem (i při „Show results after voting“, viz X2) a hlas uživatele zůstává vyznačen.
+- **X1.4** (hranice): hlas se přijme, pouze pokud je čas serveru při jeho zpracování **před** koncem. Hlas zpracovaný v okamžiku konce nebo později se odmítne. Hlas „ve letu“ při konci rozhodne čas zpracování na serveru a UI se zachová podle E1/E3.
+- **X1.5**: UI nemá časovač. Stav „skončená“ se zobrazí z dat serveru při nejbližším refetchi nebo při prvním odmítnutém hlasu (E3).
+
+## X2. Viditelnost výsledků
+
+- **X2.1**: Formulář má pole `"Results"` s hodnotami `"Show results immediately"` (výchozí) a `"Show results after voting"`.
+- **X2.2** (hned): počty, procenta, pruhy a celkem vidí každý přihlášený okamžitě, i bez hlasování.
+- **X2.3** (až po hlasování): uživatel, který **nehlasoval**, není autor a anketa neskončila, vidí jen texty odpovědí a nápovědu `"Vote to see results"`. **Odpověď API pro něj neobsahuje žádná čísla hlasů, ani součet** (neskrývá je jen UI).
+- **X2.4**: Autor vidí výsledky vždy. Po skončení ankety je vidí všichni.
+- **X2.5** (první hlas při skrytých výsledcích): výběr se po kliknutí vyznačí **okamžitě** (D1). Čísla nelze předvídat, proto se objeví až s odpovědí serveru. Do té doby se ukazuje stav čekání bez čísel. Při selhání (E1) se anketa vrátí do skrytého stavu bez čísel.
+- **X2.6**: Uživatel, který už hlasoval, vidí čísla a jeho další změny se chovají jako v Core (D1–D3 včetně optimistických čísel).
+
+## X3. Návrhy nových odpovědí od ostatních
+
+- **X3.1**: Formulář má pole `"New answers from others"` s hodnotami `"Not allowed"` (výchozí), `"Published immediately"`, `"Author approves first"`.
+- **X3.2** (nabídka): není-li `"Not allowed"`, ukazuje otevřená anketa přihlášenému uživateli pole a tlačítko `"Suggest an answer"`, dokud počet **zveřejněných + čekajících** odpovědí je menší než 10. Při `"Not allowed"` nemůže odpověď přidat nikdo, ani autor.
+- **X3.3** (validace, klient i server): text 1–80 znaků po ořezání mezer. Duplicita (po ořezání mezer, bez ohledu na velikost písmen) vůči **zveřejněným i čekajícím** odpovědím téže ankety je chyba. Při dosažení stropu 10 je chyba `"This poll already has the maximum number of options"`. Chyby se ukazují pod polem.
+- **X3.4** (limit na osobu): neautor může mít v jedné anketě nejvýše **jednu aktivní** (čekající nebo zveřejněnou) vlastní odpověď. Zamítnutí návrhu slot uvolní. **Autor je z limitu na osobu vyňat**, strop 10 ho ale váže.
+- **X3.5** (`"Published immediately"`): přijatý návrh je ihned zveřejněná odpověď s 0 hlasy na konci seznamu. Ostatní ji uvidí při nejbližším refetchi.
+- **X3.6** (`"Author approves first"`): návrh neautora vznikne jako **čekající**. Vidí ho jen autor (u ankety `"N suggestions awaiting approval"`, každý návrh s tlačítky `"Approve"` a `"Reject"`) a navrhovatel (jeho návrh s označením `"Awaiting approval"`, bez hlasovacího tlačítka a bez čísel). Nikdo jiný ho nevidí a API ho jim nevrací. Návrhy **autora** jsou i v tomto režimu zveřejněné ihned.
+- **X3.7** (rozhodnutí autora): `"Approve"` změní návrh na zveřejněnou odpověď s 0 hlasy na konci seznamu. `"Reject"` návrh smaže. Rozhodovat smí jen autor (jiný uživatel dostane `403`). Neexistující nebo už vyřízený návrh vrací `404`.
+- **X3.8**: Přijatý návrh **sám nehlasuje** (navrhovatel ani nikdo jiný nedostane automatický hlas).
+- **X3.9**: Zveřejněnou odpověď nelze upravit ani smazat (ani autorem). Moderace je mimo MVP.
+- **X3.10** (souběh): dva souběžné návrhy téhož textu: právě jeden uspěje, druhý dostane chybu duplicity. Souběžné návrhy při 9 z 10 obsazených: právě jeden uspěje a strop 10 se nikdy nepřekročí. Schválení tedy nikdy neselže na stropu.
+- **X3.11**: Po skončení ankety se čekající návrhy nikomu neukazují a nelze je schválit (X1.3).
+
+---
+
+# Průřezové požadavky
+
+## Měření (zda lidé ankety používají)
+
+Stejný záměr a tvar jako dnešní log `quack_search`: jeden řádek přes `Logger`, který produkt čte jako počet **různých uživatelů za den**. Název události a tvar se proto drží stabilní.
+
+- `poll_created user=<id> poll=<quackId> at=<ISO>`: po úspěšném uložení quacku s anketou.
+- `poll_vote user=<id> poll=<quackId> at=<ISO>`: po úspěšném uložení hlasu **nebo změny hlasu**. Klik na již zvolenou odpověď (C3) se neloguje.
+- `poll_option_suggested user=<id> poll=<quackId> at=<ISO>`: po úspěšném přijetí návrhu od **neautora** (čekajícího i zveřejněného). Odpovědi přidané autorem, schválení a zamítnutí se neloguje.
+- Loguje se **až po úspěšném uložení**. Odmítnutý, neplatný nebo selhavší pokus se neloguje.
+- Řádek **nikdy neobsahuje** text otázky ani odpovědí.
+- Ověřuje se testem jako dnes u hledání (`quacks.search-logging.spec.ts`).
+
+## Kompatibilita existujících endpointů
+
+(Podle CLAUDE.md: rozšíření nesmí změnit, co endpoint dnes přijímá. Porovnáno s `main`.)
+
+- **K1**: `POST /api/quacks` bez pole pro anketu se chová přesně jako dnes (`201`, stejná validace). Odpověď nově obsahuje pole `poll`, které je u quacku bez ankety `null`.
+- **K2**: Pole pro anketu v těle je **nové volitelné** pole. Neznámá pole v těle se dál odmítají `400` (`forbidNonWhitelisted` zůstává).
+- **K3**: `GET /api/quacks` dnes ignoruje všechny parametry kromě `q`. Musí je ignorovat i nadále (neznámý parametr = `200`, ne `400`). Nový parametr se případně validuje samostatně pipe na `@Query('name', …)`, ne DTO pro celý query string.
+- **K4**: Hledání (`q`) se chová beze změny: hledá v textu quacku a ve jménu a uživatelském jménu autora. **Texty odpovědí se nehledají.**
+- **K5**: Všechny dnešní testy (`pnpm check-all`) zůstávají zelené.
+
+## Seed (ukázková data)
+
+Po čerstvém seedu (stávající pravidlo: seed se přeskočí, pokud už v DB jsou uživatelé) obsahuje feed aspoň:
+
+- jednu **otevřenou** anketu s výchozím nastavením a hlasy **alespoň tří** různých seedovaných uživatelů,
+- jednu **skončenou** anketu (konec v minulosti) s hlasy,
+- jednu anketu s `"Author approves first"` a jedním **čekajícím** návrhem.
+
+## UI a design
+
+- Řídit se [`DESIGN.md`](DESIGN.md): pouze tokeny barev, škála mezer, žádné vnořené karty, žádné stíny, hairline ohraničení, sentence case, viditelné `<label>` u všech polí formuláře.
+- Chybějící ovládací prvek (např. přepínač) se přidává příkazem `pnpm dlx shadcn@latest add <name>` podle CLAUDE.md. Neručně v adresáři funkce. Následně se odstraní stíny a vrátí import `cn` na `@/lib/utils`.
+- Klient i server validují stejná pravidla (80 znaků, 2–10, duplicity).
+
+---
+
+# Mimo rozsah (záměrně ne)
+
+Editace a mazání ankety nebo odpovědí, ruční předčasné ukončení, vícenásobný výběr, stažení hlasu, zobrazení, kdo pro co hlasoval, vyhledávání v textech odpovědí, notifikace (autor se o čekajícím návrhu dozví jen při pohledu do feedu), živé aktualizace (polling/push), moderace zveřejněných odpovědí, změna nastavení po vytvoření, samostatná stránka ankety.
+
+# Protokol rozhodnutí
+
+| Rozhodnutí                                                                               | Kdo                                                                    |
+| ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| Anketa je příloha quacku, text quacku je otázka, vzhled ve stylu X/Threads               | uživatel                                                               |
+| 2–10 odpovědí, max. 80 znaků, bez duplicit                                               | uživatel                                                               |
+| Autor volí trvání, viditelnost výsledků, návrhy odpovědí (vypnuto / hned / ke schválení) | uživatel                                                               |
+| Jedna volba na osobu, změna = přesun, bez stažení hlasu                                  | produktové rozhodnutí na pověření uživatele, odsouhlaseno rekapitulací |
+| Anonymní hlasy, autor smí hlasovat, výchozí hodnoty nastavení                            | produktové rozhodnutí, odsouhlaseno rekapitulací                       |
+| Optimistické UI, vrácení a trvalá inline chyba při selhání                               | produktové rozhodnutí, odsouhlaseno rekapitulací                       |
+| Čerstvost jen refetchem (focus + po akci), bez pollingu                                  | produktové rozhodnutí, odsouhlaseno rekapitulací                       |
+| Zobrazení: počet + % + pruh, celkem, zaokrouhlení na celá čísla                          | produktové rozhodnutí, odsouhlaseno rekapitulací                       |
+| Měření třemi log událostmi ve tvaru `quack_search`, jen po úspěchu, bez textů            | produktové rozhodnutí, odsouhlaseno rekapitulací                       |
+| Hledání neprohledává texty odpovědí                                                      | produktové rozhodnutí, odsouhlaseno rekapitulací                       |
+| Seed: otevřená, skončená a anketa s čekajícím návrhem                                    | produktové rozhodnutí, odsouhlaseno rekapitulací                       |
+| `story.md` v češtině, texty UI anglicky                                                  | uživatel                                                               |
+
+**Otevřená rozhodnutí: žádná.**

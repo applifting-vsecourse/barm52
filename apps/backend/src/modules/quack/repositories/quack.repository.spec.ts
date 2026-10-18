@@ -36,7 +36,12 @@ const aPrismaQuack = (
 
 describe('QuackRepository', () => {
   const quack = { create: jest.fn(), findMany: jest.fn() };
-  const repository = new QuackRepository({ quack } as unknown as PrismaService);
+  // The list reads in a transaction; the fake runs its callback on itself.
+  const prisma = {
+    quack,
+    $transaction: (run: (tx: unknown) => unknown): unknown => run(prisma),
+  };
+  const repository = new QuackRepository(prisma as unknown as PrismaService);
 
   beforeEach(() => {
     jest.resetAllMocks();

@@ -1,12 +1,16 @@
 import { Mood, MOODS } from '@/modules/quack/domain/quack';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 import {
   IsIn,
   IsNotEmpty,
+  IsObject,
   IsOptional,
   IsString,
   MaxLength,
+  ValidateNested,
 } from 'class-validator';
+import { CreatePollDto } from './create-poll.dto';
 
 export class CreateQuackDto {
   @ApiProperty({
@@ -30,4 +34,16 @@ export class CreateQuackDto {
   @IsOptional()
   @IsIn(MOODS)
   mood?: Mood | null;
+
+  @ApiPropertyOptional({
+    description:
+      'A poll to attach; the quack text is its question. Leave it out, or send null, for none.',
+    type: CreatePollDto,
+    nullable: true,
+  })
+  @IsOptional()
+  @IsObject()
+  @ValidateNested()
+  @Type(() => CreatePollDto)
+  poll?: CreatePollDto | null;
 }

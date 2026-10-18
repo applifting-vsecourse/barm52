@@ -25,6 +25,7 @@ import { cn } from "@/lib/utils"
 
 import { MOODS, moodSchema } from "@/features/quack/api/quackSchemas"
 import { MoodLabel } from "@/features/quack/components/MoodLabel"
+import { NEW_POLL, PollFields, pollFormSchema } from "@/features/quack/components/PollFields"
 import { useAddQuack } from "@/features/quack/hooks/useAddQuack"
 
 // Mirrors the server-side DTO (MaxLength(280)) so the user is told before
@@ -42,6 +43,8 @@ const schema = z.object({
     .min(1, "Write something first")
     .max(MAX_LENGTH, `Keep it under ${MAX_LENGTH} characters`),
   mood: z.union([moodSchema, z.literal(NO_MOOD)]),
+  // Null while the quack has no poll; then none of its rules apply.
+  poll: pollFormSchema.nullable(),
 })
 
 type FormValues = z.infer<typeof schema>
@@ -56,15 +59,33 @@ export function QuackForm({ className, onPosted }: QuackFormProps) {
   const addQuack = useAddQuack()
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { text: "", mood: NO_MOOD },
+    defaultValues: { text: "", mood: NO_MOOD, poll: null },
   })
 
   const text = useWatch({ control: form.control, name: "text" })
   const length = text?.length ?? 0
+  const hasPoll = useWatch({ control: form.control, name: "poll" }) !== null
 
-  const handleSubmit = ({ text, mood }: FormValues) => {
+  // Removing the poll drops its answers too, so the quack goes out without it.
+  const togglePoll = () => {
+    form.clearErrors("poll")
+    form.setValue("poll", hasPoll ? null : NEW_POLL)
+  }
+
+  const handleSubmit = ({ text, mood, poll }: FormValues) => {
     addQuack.mutate(
-      { text, mood: mood === NO_MOOD ? undefined : mood },
+      {
+        text,
+        mood: mood === NO_MOOD ? undefined : mood,
+        poll: poll
+          ? {
+              options: poll.options.map((option) => option.text),
+              length: poll.length,
+              results: poll.results,
+              suggestions: poll.suggestions,
+            }
+          : undefined,
+      },
       {
         onSuccess: () => {
           form.reset()
@@ -106,7 +127,19 @@ export function QuackForm({ className, onPosted }: QuackFormProps) {
           )}
         />
 
+        {hasPoll ? <PollFields isDisabled={addQuack.isPending} /> : null}
+
         <div className="flex flex-wrap items-center justify-between gap-3">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={addQuack.isPending}
+            onClick={togglePoll}
+          >
+            {hasPoll ? "Remove poll" : "Add poll"}
+          </Button>
+
           <FormField
             control={form.control}
             name="mood"

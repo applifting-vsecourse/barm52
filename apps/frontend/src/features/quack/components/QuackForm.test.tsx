@@ -17,6 +17,7 @@ const created: Quack = {
   userId: "u1",
   createdAt: new Date("2026-01-01T12:00:00Z"),
   user: { id: "u1", name: "Caffeinated Duck", username: "CaffeinatedDuck" },
+  poll: null,
 }
 
 // What the form handed to addQuack. TanStack Query may append arguments of its

@@ -60,13 +60,20 @@ export class QuacksController {
     @Query('q', SearchQueryPipe) q?: string,
   ): Promise<QuackResponseDto[]> {
     const quacks = await this.quacksService.getQuacks(user, q);
-    return quacks.map(QuackResponseDto.fromDomain);
+    const now = new Date();
+    return quacks.map((quack) =>
+      QuackResponseDto.fromDomain(quack, user.id, now),
+    );
   }
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Create a quack' })
+  @ApiOperation({ summary: 'Create a quack, optionally with a poll' })
   @ApiResponse({ status: 201, type: QuackResponseDto })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid quack or poll; nothing is created',
+  })
   @ApiResponse({ status: 401, description: 'Not signed in' })
   async create(
     @User() user: Identity,
@@ -75,7 +82,8 @@ export class QuacksController {
     const quack = await this.quacksService.createQuack(user, {
       text: body.text,
       mood: body.mood,
+      ...(body.poll ? { poll: body.poll } : {}),
     });
-    return QuackResponseDto.fromDomain(quack);
+    return QuackResponseDto.fromDomain(quack, user.id);
   }
 }

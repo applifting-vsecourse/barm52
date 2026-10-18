@@ -1,8 +1,14 @@
 import { PrismaService } from '@/core/prisma/prisma.service';
 import { User } from '@/generated/prisma/client';
+import {
+  PollLength,
+  PollResultsVisibility,
+  PollSuggestionMode,
+} from '@/modules/quack/domain/poll';
 import { Mood } from '@/modules/quack/domain/quack';
 import { BetterAuth } from '@/shared/auth/providers/better-auth.provider';
 import { Config } from '@/shared/config/config.service';
+import { addPoll } from './create-poll';
 import { createQuack } from './create-quack';
 import { createUser } from './create-user';
 
@@ -26,7 +32,8 @@ export const seedDatabase = async (
     return;
   }
 
-  // Drop existing database data from all tables
+  // Drop existing database data from all tables. The poll tables reference
+  // "quack" and "user", so CASCADE empties them too.
   try {
     await prisma.$executeRawUnsafe(
       'TRUNCATE TABLE "quack", "session", "account", "verification", "user" RESTART IDENTITY CASCADE;',
@@ -88,17 +95,53 @@ export const seedDatabase = async (
   // Listed oldest first. The feed sorts newest first, so the last entry here is
   // the one at the top of the screen. The mood is optional: some of these have
   // one and some don't, so the feed shows both.
+  //
+  // Three carry a poll, one in each state worth seeing: ended, open with the
+  // defaults for a new poll, and one with a suggestion awaiting approval. A
+  // poll's end follows from its length and the quack's age, so the open one
+  // must stay less than a day old.
   const exampleQuacks: {
     author: User;
     minutesAgo: number;
     mood?: Mood;
     text: string;
+    poll?: {
+      length: PollLength;
+      results?: PollResultsVisibility;
+      suggestions?: PollSuggestionMode;
+      options: string[];
+      votes?: [User, string][];
+      pending?: [User, string][];
+    };
   }[] = [
     {
       author: pondAdmin,
       minutesAgo: 2870,
       text: `Reminder: the north end of the pond is closed for reed maintenance until Thursday.
 Yes, again. No, we don't know why the contractor is a heron.`,
+    },
+    {
+      author: migrationSeason,
+      minutesAgo: 2700,
+      text: `The V is voting on the route south. Polls close in an hour.
+The front of the V gets one vote, same as everyone else.`,
+      // Long over: an hour-long poll from nearly two days back.
+      poll: {
+        length: '1h',
+        options: [
+          'Along the coast',
+          'Over the mountains',
+          'Follow the motorway',
+          'Whatever the front decides',
+        ],
+        votes: [
+          [migrationSeason, 'Along the coast'],
+          [deepDuckThoughts, 'Along the coast'],
+          [breadCritic, 'Follow the motorway'],
+          [caffeinatedDuck, 'Over the mountains'],
+          [pondAdmin, 'Along the coast'],
+        ],
+      },
     },
     {
       author: migrationSeason,
@@ -147,6 +190,23 @@ We have footage. It is extremely blurry footage. But we have it.`,
 one of them is quacking`,
     },
     {
+      author: caffeinatedDuck,
+      minutesAgo: 560,
+      text: `fourth coffee. you pick.
+new answers welcome but i'm approving them personally`,
+      poll: {
+        length: '7d',
+        results: 'after_vote',
+        suggestions: 'author_approves',
+        options: ['espresso', 'double espresso', 'cold brew'],
+        votes: [
+          [deepDuckThoughts, 'cold brew'],
+          [breadCritic, 'double espresso'],
+        ],
+        pending: [[pondAdmin, 'Water. Please.']],
+      },
+    },
+    {
       author: breadCritic,
       minutesAgo: 415,
       mood: 'happy',
@@ -159,6 +219,29 @@ The pond is not ready for this level of quality and, frankly, neither am I. 9/10
       mood: 'sad',
       text: `Everyone says "water off a duck's back" like it's a compliment.
 Some of us would quite like to feel things.`,
+    },
+    {
+      author: pondAdmin,
+      minutesAgo: 180,
+      text: `Where should the next pond meetup be?
+The heron says the north end will be ready by then. The heron has said this before.`,
+      // The defaults for a new poll: a day long, results at once, no new
+      // answers from others.
+      poll: {
+        length: '1d',
+        options: [
+          'North end',
+          'West bank, by the stones',
+          'The big lily pad',
+          'Under the bridge',
+        ],
+        votes: [
+          [caffeinatedDuck, 'The big lily pad'],
+          [breadCritic, 'The big lily pad'],
+          [deepDuckThoughts, 'Under the bridge'],
+          [migrationSeason, 'West bank, by the stones'],
+        ],
+      },
     },
     {
       author: caffeinatedDuck,
@@ -178,12 +261,32 @@ Please stop tagging me.`,
 
   const now = Date.now();
 
-  for (const { author, minutesAgo, mood, text } of exampleQuacks) {
-    await createQuack(prisma, {
+  for (const { author, minutesAgo, mood, text, poll } of exampleQuacks) {
+    const createdAt = new Date(now - minutesAgo * MINUTE_IN_MS);
+    const quack = await createQuack(prisma, {
       text,
       mood,
       userId: author.id,
-      createdAt: new Date(now - minutesAgo * MINUTE_IN_MS),
+      createdAt,
     });
+    if (poll) {
+      await addPoll(prisma, {
+        quackId: quack.id,
+        authorId: author.id,
+        createdAt,
+        length: poll.length,
+        results: poll.results,
+        suggestions: poll.suggestions,
+        options: poll.options,
+        votes: (poll.votes ?? []).map(([voter, option]) => ({
+          userId: voter.id,
+          option,
+        })),
+        pending: (poll.pending ?? []).map(([suggester, text]) => ({
+          userId: suggester.id,
+          text,
+        })),
+      });
+    }
   }
 };
