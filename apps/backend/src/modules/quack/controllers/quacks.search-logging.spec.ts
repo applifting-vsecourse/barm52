@@ -106,7 +106,7 @@ describe('searching quacks leaves a usage log line', () => {
     const response = await search('zebra');
 
     expect(response.status).toBe(200);
-    expect(repository.getQuacks).toHaveBeenCalledWith(['zebra']);
+    expect(repository.getQuacks).toHaveBeenCalledWith(['zebra'], 'u1');
     expect(searchLines()).toHaveLength(1);
     const [line] = searchLines();
     expect(line).toMatch(SEARCH_LINE);
@@ -119,7 +119,10 @@ describe('searching quacks leaves a usage log line', () => {
   it('keeps every word of a longer query out of the log (U2)', async () => {
     await search('@Giraffe  hippo');
 
-    expect(repository.getQuacks).toHaveBeenCalledWith(['Giraffe', 'hippo']);
+    expect(repository.getQuacks).toHaveBeenCalledWith(
+      ['Giraffe', 'hippo'],
+      'u1',
+    );
     expect(searchLines()).toHaveLength(1);
     expect(logged.join('\n').toLowerCase()).not.toMatch(/giraffe|hippo/);
   });
@@ -160,7 +163,7 @@ describe('searching quacks leaves a usage log line', () => {
     const response = await search(q);
 
     expect(response.status).toBe(200);
-    expect(repository.getQuacks).toHaveBeenCalledWith([]);
+    expect(repository.getQuacks).toHaveBeenCalledWith([], 'u1');
     expect(searchLines()).toHaveLength(0);
   });
 
@@ -197,7 +200,7 @@ describe('searching quacks leaves a usage log line', () => {
       const response = await request(query);
 
       expect(response.status).toBe(200);
-      expect(repository.getQuacks).toHaveBeenCalledWith([]);
+      expect(repository.getQuacks).toHaveBeenCalledWith([], 'u1');
       expect(searchLines()).toHaveLength(0);
     },
   );
@@ -206,7 +209,7 @@ describe('searching quacks leaves a usage log line', () => {
     const response = await request('?foo=bar&q=zebra&page=2');
 
     expect(response.status).toBe(200);
-    expect(repository.getQuacks).toHaveBeenCalledWith(['zebra']);
+    expect(repository.getQuacks).toHaveBeenCalledWith(['zebra'], 'u1');
     expect(searchLines()).toHaveLength(1);
     expect(logged.join('\n')).not.toContain('zebra');
   });

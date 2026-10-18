@@ -1,3 +1,5 @@
+import { Poll } from './poll';
+
 // The one list of moods. The DTOs validate against it and the repository maps
 // the database enum onto it; the compiler flags any drift from schema.prisma.
 export const MOODS = ['happy', 'sad', 'angry', 'silly'] as const;
@@ -18,4 +20,6 @@ export type Quack = {
   createdAt: Date;
   updatedAt: Date;
   user?: QuackAuthor;
+  // Loaded with the list and on create; null for a quack without a poll.
+  poll?: Poll | null;
 };

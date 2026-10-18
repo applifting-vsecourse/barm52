@@ -37,11 +37,90 @@ model Quack {
   mood      Mood?
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId    String
+  // The optional poll attached to the quack. The quack text is its question.
+  poll      Poll?
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
 
   @@index([userId])
   @@map("quack")
+}
+
+enum PollResultsVisibility {
+  immediately
+  after_vote
+
+  @@map("poll_results_visibility")
+}
+
+enum PollSuggestions {
+  not_allowed
+  published
+  author_approves
+
+  @@map("poll_suggestions")
+}
+
+enum PollOptionStatus {
+  published
+  pending
+
+  @@map("poll_option_status")
+}
+
+// The defaults are the least restrictive values: a poll that predates a setting
+// behaves as if it had no end, showed results at once and took no suggestions.
+model Poll {
+  quack             Quack                 @relation(fields: [quackId], references: [id], onDelete: Cascade)
+  quackId           String                @id
+  // Null for a poll that never ends.
+  endsAt            DateTime?
+  resultsVisibility PollResultsVisibility @default(immediately)
+  suggestions       PollSuggestions       @default(not_allowed)
+  createdAt         DateTime              @default(now())
+  options           PollOption[]
+  votes             PollVote[]
+
+  @@map("poll")
+}
+
+model PollOption {
+  id             String           @id @default(cuid())
+  poll           Poll             @relation(fields: [pollId], references: [quackId], onDelete: Cascade)
+  pollId         String
+  text           String           @db.VarChar(80)
+  // Trimmed and lower-cased. Unique per poll, so the database itself refuses
+  // two answers that differ only in case or surrounding spaces.
+  normalizedText String           @db.VarChar(80)
+  status         PollOptionStatus @default(published)
+  // Order of publication. Null while a suggestion waits for approval.
+  position       Int?
+  createdBy      User             @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  createdById    String
+  createdAt      DateTime         @default(now())
+  votes          PollVote[]
+
+  @@unique([pollId, normalizedText])
+  @@index([createdById])
+  @@map("poll_option")
+}
+
+// A user's current choice in a poll. The primary key allows one per user and
+// poll; counts are always computed from these rows, never stored.
+model PollVote {
+  poll      Poll       @relation(fields: [pollId], references: [quackId], onDelete: Cascade)
+  pollId    String
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  option    PollOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  optionId  String
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @default(now()) @updatedAt
+
+  @@id([pollId, userId])
+  @@index([optionId])
+  @@index([userId])
+  @@map("poll_vote")
 }
 
 model Session {
@@ -93,17 +172,19 @@ model Verification {
 }
 
 model User {
-  id              String    @id
-  name            String
-  email           String
-  emailVerified   Boolean
-  image           String?   @db.Text
-  createdAt       DateTime
-  updatedAt       DateTime
-  sessions        Session[]
-  accounts        Account[]
-  quacks          Quack[]
-  role            UserRole  @default(user)
+  id            String       @id
+  name          String
+  email         String
+  emailVerified Boolean
+  image         String?      @db.Text
+  createdAt     DateTime
+  updatedAt     DateTime
+  sessions      Session[]
+  accounts      Account[]
+  quacks        Quack[]
+  pollOptions   PollOption[]
+  pollVotes     PollVote[]
+  role          UserRole     @default(user)
 
   username        String? @db.VarChar(50)
   displayUsername String? @db.VarChar(50)
