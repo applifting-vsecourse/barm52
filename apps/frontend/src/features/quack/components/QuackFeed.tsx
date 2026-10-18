@@ -1,13 +1,19 @@
 import { useRef } from "react"
 import { useQuery } from "@tanstack/react-query"
 
+import type { Mood } from "@/features/quack/api/quackSchemas"
 import { quacksQueryOptions } from "@/features/quack/api/quacksQueryOptions"
 import { QuackForm } from "@/features/quack/components/QuackForm"
 import { QuackList } from "@/features/quack/components/QuackList"
 import { QuackSearch } from "@/features/quack/components/QuackSearch"
 import { useQuackSearch } from "@/features/quack/hooks/useQuackSearch"
 
-export function QuackFeed() {
+type QuackFeedProps = {
+  // Preselected in the post form; comes from the user's settings.
+  defaultMood?: Mood | null
+}
+
+export function QuackFeed({ defaultMood }: QuackFeedProps = {}) {
   const { text, setText, search, isSearch, clear } = useQuackSearch()
   const searchInput = useRef<HTMLInputElement>(null)
   const quacksQuery = useQuery(quacksQueryOptions(search))
@@ -21,6 +27,7 @@ export function QuackFeed() {
       {/* A quack that was posted should be seen, so posting ends the search. */}
       <QuackForm
         className="mb-4"
+        defaultMood={defaultMood}
         onPosted={clear}
       />
 

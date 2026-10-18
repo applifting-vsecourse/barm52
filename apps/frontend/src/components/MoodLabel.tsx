@@ -1,11 +1,10 @@
 import { Angry, Frown, Laugh, Smile, type LucideIcon } from "lucide-react"
 
+import type { Mood } from "@/lib/moods"
 import { cn } from "@/lib/utils"
 
-import type { Mood } from "@/features/quack/api/quackSchemas"
-
-// How each mood is written and drawn. The form and the feed both render through
-// MoodLabel, so the two can't drift apart.
+// How each mood is written and drawn. The quack form, the feed and settings all
+// render through MoodLabel, so they can't drift apart.
 const MOOD_DISPLAY: Record<Mood, { label: string; Icon: LucideIcon }> = {
   happy: { label: "Happy", Icon: Smile },
   sad: { label: "Sad", Icon: Frown },

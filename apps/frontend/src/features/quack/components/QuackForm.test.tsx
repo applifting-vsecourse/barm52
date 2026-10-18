@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event"
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { addQuack } from "@/features/quack/api/addQuack"
-import type { Quack } from "@/features/quack/api/quackSchemas"
+import type { Mood, Quack } from "@/features/quack/api/quackSchemas"
 import { QuackForm } from "@/features/quack/components/QuackForm"
 
 // The network is out of scope: these tests are about what the form sends.
@@ -24,7 +24,7 @@ const created: Quack = {
 // own, so only the first one is the form's.
 const posted = () => vi.mocked(addQuack).mock.calls[0]?.[0]
 
-const renderForm = (props: { onPosted?: () => void } = {}) => {
+const renderForm = (props: { onPosted?: () => void; defaultMood?: Mood | null } = {}) => {
   const user = userEvent.setup()
   render(
     <QueryClientProvider client={new QueryClient()}>
@@ -137,5 +137,33 @@ describe("QuackForm", () => {
     await user.click(screen.getByRole("button", { name: "Quack" }))
 
     await waitFor(() => expect(moodSelect()).toHaveTextContent("None"))
+  })
+
+  it("starts with the default mood from the user's settings", () => {
+    renderForm({ defaultMood: "happy" })
+
+    expect(moodSelect()).toHaveTextContent("Happy")
+  })
+
+  it("posts the default mood unless the writer changes it", async () => {
+    const user = renderForm({ defaultMood: "sad" })
+
+    await user.type(screen.getByLabelText("New quack"), "Rainy pond")
+    await user.click(screen.getByRole("button", { name: "Quack" }))
+
+    await waitFor(() => expect(addQuack).toHaveBeenCalledOnce())
+    expect(posted()).toEqual({ text: "Rainy pond", mood: "sad" })
+  })
+
+  it("starts the next quack from the default mood again", async () => {
+    const user = renderForm({ defaultMood: "happy" })
+
+    await user.click(moodSelect())
+    await user.click(await screen.findByRole("option", { name: "None" }))
+    await user.type(screen.getByLabelText("New quack"), "Quack")
+    await user.click(screen.getByRole("button", { name: "Quack" }))
+
+    await waitFor(() => expect(moodSelect()).toHaveTextContent("Happy"))
+    expect(posted()).toEqual({ text: "Quack" })
   })
 })
