@@ -1,8 +1,8 @@
+import { MoodLabel } from "@/components/MoodLabel"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { formatDate } from "@/lib/date"
 
 import type { Quack } from "@/features/quack/api/quackSchemas"
-import { MoodLabel } from "@/features/quack/components/MoodLabel"
 import { PollView } from "@/features/quack/components/PollView"
 import { UsersName } from "@/features/quack/components/UsersName"
 import { UsersUserName } from "@/features/quack/components/UsersUserName"

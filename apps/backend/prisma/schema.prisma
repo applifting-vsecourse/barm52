@@ -189,6 +189,11 @@ model User {
   username        String? @db.VarChar(50)
   displayUsername String? @db.VarChar(50)
 
+  // Profile settings the user edits on the Settings page.
+  bio             String? @db.VarChar(160)
+  // Preselected in the new-quack form; null for no mood.
+  defaultMood     Mood?
+
   @@unique([email])
   @@unique([username])
   @@map("user")

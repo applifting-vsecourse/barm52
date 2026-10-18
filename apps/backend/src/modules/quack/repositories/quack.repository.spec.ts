@@ -19,6 +19,8 @@ const aPrismaUser = (): PrismaUser => ({
   role: 'user',
   username: 'CaffeinatedDuck',
   displayUsername: null,
+  bio: null,
+  defaultMood: null,
 });
 
 const aPrismaQuack = (

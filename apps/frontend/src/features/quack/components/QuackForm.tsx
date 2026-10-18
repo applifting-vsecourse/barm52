@@ -3,6 +3,7 @@ import { Loader2 } from "lucide-react"
 import { useForm, useWatch } from "react-hook-form"
 import { z } from "zod"
 
+import { MoodLabel } from "@/components/MoodLabel"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import {
@@ -23,8 +24,7 @@ import {
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 
-import { MOODS, moodSchema } from "@/features/quack/api/quackSchemas"
-import { MoodLabel } from "@/features/quack/components/MoodLabel"
+import { MOODS, moodSchema, type Mood } from "@/features/quack/api/quackSchemas"
 import { NEW_POLL, PollFields, pollFormSchema } from "@/features/quack/components/PollFields"
 import { useAddQuack } from "@/features/quack/hooks/useAddQuack"
 
@@ -51,15 +51,20 @@ type FormValues = z.infer<typeof schema>
 
 type QuackFormProps = {
   className?: string
+  // The mood picked for every new quack, from the user's settings. Without one
+  // a quack starts with no mood.
+  defaultMood?: Mood | null
   // Called once a quack has been posted, never after a failed attempt.
   onPosted?: () => void
 }
 
-export function QuackForm({ className, onPosted }: QuackFormProps) {
+export function QuackForm({ className, defaultMood, onPosted }: QuackFormProps) {
   const addQuack = useAddQuack()
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { text: "", mood: NO_MOOD, poll: null },
+    // Posting resets the form to these, so the next quack starts from the
+    // default mood again.
+    defaultValues: { text: "", mood: defaultMood ?? NO_MOOD, poll: null },
   })
 
   const text = useWatch({ control: form.control, name: "text" })
