@@ -8,7 +8,12 @@ import { Mood, Quack } from '@/modules/quack/domain/quack';
 import { searchWords } from '@/modules/quack/domain/search-words';
 import { QuackRepository } from '@/modules/quack/repositories/quack.repository';
 import { Identity } from '@/shared/auth/domain/identity';
-import { Injectable, Logger } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 
 @Injectable()
 export class QuacksService {
@@ -16,7 +21,13 @@ export class QuacksService {
 
   constructor(private readonly quackRepository: QuackRepository) {}
 
-  async getQuacks(user: Identity, query?: string): Promise<Quack[]> {
+  // `mine` narrows the list to the signed-in user's own quacks. Who "me" is
+  // comes from the session; the request never names a user.
+  async getQuacks(
+    user: Identity,
+    query?: string,
+    mine = false,
+  ): Promise<Quack[]> {
     const words = searchWords(query);
     if (words.length > 0) {
       // The one record of search use: who searched and when, never what they
@@ -27,7 +38,25 @@ export class QuacksService {
         `quack_search user=${user.id} at=${new Date().toISOString()}`,
       );
     }
-    return this.quackRepository.getQuacks(words, user.id);
+    return this.quackRepository.getQuacks(
+      words,
+      user.id,
+      mine ? user.id : undefined,
+    );
+  }
+
+  // The one place that decides who may delete a quack. Hiding the button in
+  // the UI is a convenience; this check is what keeps a direct API call out.
+  async deleteQuack(user: Identity, quackId: string): Promise<void> {
+    const authorId = await this.quackRepository.getAuthorId(quackId);
+    if (authorId === null) throw new NotFoundException('Quack not found');
+
+    const isOwner = authorId === user.id;
+    if (!isOwner) {
+      throw new ForbiddenException('You can only delete your own quacks');
+    }
+
+    await this.quackRepository.deleteQuack(quackId);
   }
 
   async createQuack(
