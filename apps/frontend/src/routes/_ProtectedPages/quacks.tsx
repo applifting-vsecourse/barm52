@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router"
 
 import { Seo } from "@/components/Seo"
 
+import { useSession } from "@/features/auth/hooks/useSession"
 import { QuackFeed } from "@/features/quack/components/QuackFeed"
 import { settingsQueryOptions } from "@/features/settings/api/settingsQueryOptions"
 
@@ -16,6 +17,9 @@ export const Route = createFileRoute("/_ProtectedPages/quacks")({
 
 function QuacksPage() {
   const { data: settings } = useQuery(settingsQueryOptions())
+  // Features don't import each other, so the route hands the quack feed who is
+  // signed in. It only decides which Delete buttons show; the server checks.
+  const { user } = useSession()
 
   return (
     <>
@@ -23,7 +27,10 @@ function QuacksPage() {
       <section className="mx-auto w-full max-w-2xl px-4 py-8">
         <h1 className="mb-4 text-2xl font-semibold tracking-tight">Quacks</h1>
 
-        <QuackFeed defaultMood={settings?.defaultMood ?? null} />
+        <QuackFeed
+          defaultMood={settings?.defaultMood ?? null}
+          currentUserId={user?.id}
+        />
       </section>
     </>
   )

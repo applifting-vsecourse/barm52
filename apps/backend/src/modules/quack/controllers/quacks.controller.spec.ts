@@ -68,6 +68,6 @@ describe('QuacksController', () => {
 
     await new QuacksController(service).list(user, 'bread');
 
-    expect(service.getQuacks).toHaveBeenCalledWith(user, 'bread');
+    expect(service.getQuacks).toHaveBeenCalledWith(user, 'bread', false);
   });
 });

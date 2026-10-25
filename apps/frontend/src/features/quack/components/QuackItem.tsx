@@ -3,13 +3,18 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { formatDate } from "@/lib/date"
 
 import type { Quack } from "@/features/quack/api/quackSchemas"
+import { DeleteQuackButton } from "@/features/quack/components/DeleteQuackButton"
 import { PollView } from "@/features/quack/components/PollView"
 import { UsersName } from "@/features/quack/components/UsersName"
 import { UsersUserName } from "@/features/quack/components/UsersUserName"
 
-type QuackItemProps = { quack: Quack }
+type QuackItemProps = {
+  quack: Quack
+  // Shows the Delete action. Convenience only: the server decides for itself.
+  canDelete?: boolean
+}
 
-export function QuackItem({ quack }: QuackItemProps) {
+export function QuackItem({ quack, canDelete = false }: QuackItemProps) {
   const { name, username } = quack.user
 
   const initials = name
@@ -51,6 +56,13 @@ export function QuackItem({ quack }: QuackItemProps) {
           />
         ) : null}
       </div>
+
+      {canDelete ? (
+        <DeleteQuackButton
+          quackId={quack.id}
+          className="shrink-0"
+        />
+      ) : null}
     </article>
   )
 }

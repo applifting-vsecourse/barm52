@@ -5,9 +5,11 @@ import { AuthenticatedUserGuard } from '@/shared/auth/guards/authenticated-user.
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
+  Param,
   Post,
   Query,
   UseGuards,
@@ -23,6 +25,7 @@ import {
 } from '@nestjs/swagger';
 import { CreateQuackDto } from './dto/create-quack.dto';
 import { QuackResponseDto } from './dto/quack.response.dto';
+import { MineQueryPipe } from './pipes/mine-query.pipe';
 import { MAX_SEARCH_LENGTH, SearchQueryPipe } from './pipes/search-query.pipe';
 
 @ApiTags('quacks')
@@ -49,17 +52,25 @@ export class QuacksController {
     example: 'bread critic',
     schema: { type: 'string', maxLength: MAX_SEARCH_LENGTH },
   })
+  @ApiQuery({
+    name: 'mine',
+    required: false,
+    description:
+      'true for only your own quacks; who you are comes from the session. Leave it out for every quack.',
+    schema: { type: 'boolean' },
+  })
   @ApiResponse({ status: 200, type: [QuackResponseDto] })
   @ApiResponse({
     status: 400,
-    description: `The search is longer than ${MAX_SEARCH_LENGTH} characters`,
+    description: `The search is longer than ${MAX_SEARCH_LENGTH} characters, or mine is not true or false`,
   })
   @ApiResponse({ status: 401, description: 'Not signed in' })
   async list(
     @User() user: Identity,
     @Query('q', SearchQueryPipe) q?: string,
+    @Query('mine', MineQueryPipe) mine = false,
   ): Promise<QuackResponseDto[]> {
-    const quacks = await this.quacksService.getQuacks(user, q);
+    const quacks = await this.quacksService.getQuacks(user, q, mine);
     const now = new Date();
     return quacks.map((quack) =>
       QuackResponseDto.fromDomain(quack, user.id, now),
@@ -85,5 +96,19 @@ export class QuacksController {
       ...(body.poll ? { poll: body.poll } : {}),
     });
     return QuackResponseDto.fromDomain(quack, user.id);
+  }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: 'Delete one of your own quacks',
+    description: 'Its poll, answers and votes go with it.',
+  })
+  @ApiResponse({ status: 204, description: 'Deleted' })
+  @ApiResponse({ status: 401, description: 'Not signed in' })
+  @ApiResponse({ status: 403, description: 'Not your quack' })
+  @ApiResponse({ status: 404, description: 'No such quack' })
+  async remove(@User() user: Identity, @Param('id') id: string): Promise<void> {
+    await this.quacksService.deleteQuack(user, id);
   }
 }

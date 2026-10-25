@@ -76,11 +76,21 @@ export class QuackRepository {
 
   // Every quack, or only those where every word matches somewhere. No words
   // means no filter. Poll options are not searched. Polls are read for
-  // `viewerId`, whose own vote comes with them.
-  async getQuacks(words: string[] = [], viewerId = ''): Promise<Quack[]> {
+  // `viewerId`, whose own vote comes with them. With `authorId`, only that
+  // user's quacks.
+  async getQuacks(
+    words: string[] = [],
+    viewerId = '',
+    authorId?: string,
+  ): Promise<Quack[]> {
     return this.prisma.$transaction(async (tx) => {
       const quacks = await tx.quack.findMany({
-        where: { AND: words.map(matchesWord) },
+        where: {
+          AND: [
+            ...words.map(matchesWord),
+            ...(authorId ? [{ userId: authorId }] : []),
+          ],
+        },
         include: WITH_USER_AND_POLL,
         orderBy: { createdAt: 'desc' },
       });
@@ -136,5 +146,20 @@ export class QuackRepository {
       include: WITH_USER_AND_POLL,
     });
     return mapPrismaQuackToDomain(quack);
+  }
+
+  // Who wrote the quack, or null when there is no such quack.
+  async getAuthorId(quackId: string): Promise<string | null> {
+    const quack = await this.prisma.quack.findUnique({
+      where: { id: quackId },
+      select: { userId: true },
+    });
+    return quack?.userId ?? null;
+  }
+
+  // The poll, its answers and votes go with the quack (onDelete: Cascade). A
+  // quack that is already gone is not an error.
+  async deleteQuack(quackId: string): Promise<void> {
+    await this.prisma.quack.deleteMany({ where: { id: quackId } });
   }
 }
