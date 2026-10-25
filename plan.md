@@ -1,6 +1,6 @@
 # Plán: ankety v quacích
 
-Implementační plán ke [`story.md`](story.md) (Core A–F, rozšíření X1–X3). Story je zdroj pravdy, tento soubor jen popisuje, jak ji splnit.
+Implementační plán ke [`story-polls.md`](story-polls.md) (Core A–F, rozšíření X1–X3). Story je zdroj pravdy, tento soubor jen popisuje, jak ji splnit.
 
 ## Postup a commity
 

@@ -114,6 +114,25 @@ describe('quacks over HTTP', () => {
       expect(quackRepository.deleteQuack).not.toHaveBeenCalled();
     });
 
+    it("lets an admin delete someone else's quack: 204", async () => {
+      session = { user: { id: 'a1', role: 'admin' } };
+      quackRepository.getAuthorId.mockResolvedValue('u1');
+
+      const response = await send('DELETE', '/quacks/q1');
+
+      expect(response.status).toBe(204);
+      expect(quackRepository.deleteQuack).toHaveBeenCalledWith('q1');
+    });
+
+    it('takes the role from the session, not from the request', async () => {
+      quackRepository.getAuthorId.mockResolvedValue('u2');
+
+      const response = await send('DELETE', '/quacks/q1?role=admin');
+
+      expect(response.status).toBe(403);
+      expect(quackRepository.deleteQuack).not.toHaveBeenCalled();
+    });
+
     it('answers 404 for a quack that does not exist', async () => {
       quackRepository.getAuthorId.mockResolvedValue(null);
 

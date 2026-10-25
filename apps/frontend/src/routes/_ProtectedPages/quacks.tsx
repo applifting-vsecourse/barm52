@@ -18,7 +18,8 @@ export const Route = createFileRoute("/_ProtectedPages/quacks")({
 function QuacksPage() {
   const { data: settings } = useQuery(settingsQueryOptions())
   // Features don't import each other, so the route hands the quack feed who is
-  // signed in. It only decides which Delete buttons show; the server checks.
+  // signed in and whether they moderate (admin). It only decides which Delete
+  // buttons show; the server checks.
   const { user } = useSession()
 
   return (
@@ -30,6 +31,7 @@ function QuacksPage() {
         <QuackFeed
           defaultMood={settings?.defaultMood ?? null}
           currentUserId={user?.id}
+          isAdmin={user?.role === "admin"}
         />
       </section>
     </>

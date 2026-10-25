@@ -17,9 +17,11 @@ type QuackFeedProps = {
   defaultMood?: Mood | null
   // The signed-in user, from the session. Their own quacks can be deleted.
   currentUserId?: string
+  // A moderator: every quack can be deleted.
+  isAdmin?: boolean
 }
 
-export function QuackFeed({ defaultMood, currentUserId }: QuackFeedProps = {}) {
+export function QuackFeed({ defaultMood, currentUserId, isAdmin }: QuackFeedProps = {}) {
   const { text, setText, search, isSearch, clear } = useQuackSearch()
   const [tab, setTab] = useState<FeedTab>("all")
   const searchInput = useRef<HTMLInputElement>(null)
@@ -76,6 +78,7 @@ export function QuackFeed({ defaultMood, currentUserId }: QuackFeedProps = {}) {
             // and refocusing the tab refetches it.
             onReload={() => void quacksQuery.refetch()}
             currentUserId={currentUserId}
+            isAdmin={isAdmin}
             isMine={tab === "mine"}
             onWriteFirst={() => newQuackInput.current?.focus()}
           />

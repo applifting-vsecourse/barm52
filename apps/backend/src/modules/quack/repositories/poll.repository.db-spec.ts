@@ -1,7 +1,7 @@
 // Runs against a real Postgres (`pnpm backend test:db`). The rules checked
 // here are kept by the database itself: unique keys, the poll row lock,
 // one-statement upserts, the transaction around a nested create. A faked Prisma
-// can't race, so only a real database shows they hold. IDs refer to story.md.
+// can't race, so only a real database shows they hold. IDs refer to story-polls.md.
 import { PrismaService } from '@/core/prisma/prisma.service';
 import { User } from '@/generated/prisma/client';
 import {

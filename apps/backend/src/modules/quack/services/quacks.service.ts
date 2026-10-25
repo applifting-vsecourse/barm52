@@ -44,14 +44,17 @@ export class QuacksService {
       : this.quackRepository.getQuacks(words, user.id);
   }
 
-  // The one place that decides who may delete a quack. Hiding the button in
-  // the UI is a convenience; this check is what keeps a direct API call out.
+  // The one place that decides who may delete a quack: its author, or a
+  // moderator (the admin role). Both come from the session, never from the
+  // request. Hiding the button in the UI is a convenience; this check is what
+  // keeps a direct API call out.
   async deleteQuack(user: Identity, quackId: string): Promise<void> {
     const authorId = await this.quackRepository.getAuthorId(quackId);
     if (authorId === null) throw new NotFoundException('Quack not found');
 
     const isOwner = authorId === user.id;
-    if (!isOwner) {
+    const isAdmin = user.role === 'admin';
+    if (!isOwner && !isAdmin) {
       throw new ForbiddenException('You can only delete your own quacks');
     }
 

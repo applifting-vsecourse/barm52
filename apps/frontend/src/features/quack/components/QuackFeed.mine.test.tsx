@@ -47,13 +47,16 @@ const serve = () =>
       ),
   })) as never)
 
-const renderFeed = () => {
+const renderFeed = ({ isAdmin = false } = {}) => {
   const user = userEvent.setup()
   render(
     <QueryClientProvider
       client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
     >
-      <QuackFeed currentUserId="u1" />
+      <QuackFeed
+        currentUserId="u1"
+        isAdmin={isAdmin}
+      />
     </QueryClientProvider>,
   )
   return { user }
@@ -70,6 +73,14 @@ describe("QuackFeed delete and Mine", () => {
   })
 
   describe("deleting", () => {
+    it("offers an admin Delete on every quack", async () => {
+      renderFeed({ isAdmin: true })
+      await screen.findByText("Somebody else's quack")
+
+      expect(screen.getAllByRole("article")).toHaveLength(2)
+      expect(screen.getAllByRole("button", { name: "Delete quack" })).toHaveLength(2)
+    })
+
     it("offers Delete on my quacks only", async () => {
       renderFeed()
       await screen.findByText("Somebody else's quack")
