@@ -14,6 +14,12 @@ type QuackListProps = {
   search?: string
   onClearSearch?: () => void
   onReload?: () => void
+  // The signed-in user. Their own quacks get a Delete action.
+  currentUserId?: string
+  // The list holds only the signed-in user's quacks (the Mine tab).
+  isMine?: boolean
+  // Offered when Mine is empty: take the user to the post form.
+  onWriteFirst?: () => void
 }
 
 export function QuackList({
@@ -23,6 +29,9 @@ export function QuackList({
   search,
   onClearSearch,
   onReload,
+  currentUserId,
+  isMine = false,
+  onWriteFirst,
 }: QuackListProps) {
   return (
     <div className="flex flex-col">
@@ -73,16 +82,35 @@ export function QuackList({
         </div>
       ) : null}
 
-      {!isLoading && !error && quacks.length === 0 && !search ? (
+      {!isLoading && !error && quacks.length === 0 && !search && !isMine ? (
         <p className="py-8 text-center text-sm text-muted-foreground">
           No quacks yet. Post the first one.
         </p>
+      ) : null}
+
+      {!isLoading && !error && quacks.length === 0 && !search && isMine ? (
+        <div className="py-8 text-center">
+          <p className="text-sm text-muted-foreground">
+            You haven&apos;t posted any quacks yet. Yours will show up here.
+          </p>
+          {onWriteFirst ? (
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-3"
+              onClick={onWriteFirst}
+            >
+              Write your first quack
+            </Button>
+          ) : null}
+        </div>
       ) : null}
 
       {quacks.map((quack) => (
         <QuackItem
           key={quack.id}
           quack={quack}
+          canDelete={currentUserId !== undefined && quack.userId === currentUserId}
         />
       ))}
     </div>

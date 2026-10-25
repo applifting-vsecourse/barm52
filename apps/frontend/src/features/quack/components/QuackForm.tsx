@@ -1,3 +1,4 @@
+import type { RefObject } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Loader2 } from "lucide-react"
 import { useForm, useWatch } from "react-hook-form"
@@ -56,9 +57,11 @@ type QuackFormProps = {
   defaultMood?: Mood | null
   // Called once a quack has been posted, never after a failed attempt.
   onPosted?: () => void
+  // The text box, for whoever wants to send the user here.
+  inputRef?: RefObject<HTMLTextAreaElement | null>
 }
 
-export function QuackForm({ className, defaultMood, onPosted }: QuackFormProps) {
+export function QuackForm({ className, defaultMood, onPosted, inputRef }: QuackFormProps) {
   const addQuack = useAddQuack()
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -125,6 +128,10 @@ export function QuackForm({ className, defaultMood, onPosted }: QuackFormProps) 
                   placeholder="Quack something..."
                   disabled={addQuack.isPending}
                   {...field}
+                  ref={(element) => {
+                    field.ref(element)
+                    if (inputRef) inputRef.current = element
+                  }}
                 />
               </FormControl>
               <FormMessage />
