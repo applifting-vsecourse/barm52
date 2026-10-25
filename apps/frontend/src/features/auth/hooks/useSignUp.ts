@@ -22,6 +22,9 @@ export function useSignUp() {
         username: input.username,
         email: input.email,
         password: input.password,
+        // Where the link in the verification e-mail lands. Without it BetterAuth
+        // redirects to / on the backend, which has no page.
+        callbackURL: `${window.location.origin}/quacks`,
       })
       if (error) throw new Error(error.message ?? "Sign up failed")
     },
