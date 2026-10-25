@@ -157,11 +157,7 @@ describe('quacks over HTTP', () => {
         const response = await send('GET', path);
 
         expect(response.status).toBe(200);
-        expect(quackRepository.getQuacks).toHaveBeenCalledWith(
-          [],
-          'u1',
-          undefined,
-        );
+        expect(quackRepository.getQuacks).toHaveBeenCalledWith([], 'u1');
       },
     );
 
@@ -176,11 +172,7 @@ describe('quacks over HTTP', () => {
       const response = await send('GET', '/quacks?page=2&userId=u2');
 
       expect(response.status).toBe(200);
-      expect(quackRepository.getQuacks).toHaveBeenCalledWith(
-        [],
-        'u1',
-        undefined,
-      );
+      expect(quackRepository.getQuacks).toHaveBeenCalledWith([], 'u1');
     });
   });
 });

@@ -38,11 +38,10 @@ export class QuacksService {
         `quack_search user=${user.id} at=${new Date().toISOString()}`,
       );
     }
-    return this.quackRepository.getQuacks(
-      words,
-      user.id,
-      mine ? user.id : undefined,
-    );
+    // Without mine the repository is called exactly as before the tabs.
+    return mine
+      ? this.quackRepository.getQuacks(words, user.id, user.id)
+      : this.quackRepository.getQuacks(words, user.id);
   }
 
   // The one place that decides who may delete a quack. Hiding the button in

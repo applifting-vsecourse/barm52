@@ -40,7 +40,7 @@ describe('QuacksService', () => {
       quacks,
     );
     expect(repository.getQuacks).toHaveBeenCalledTimes(1);
-    expect(repository.getQuacks).toHaveBeenCalledWith([], 'u1', undefined);
+    expect(repository.getQuacks).toHaveBeenCalledWith([], 'u1');
   });
 
   it('narrows the list to the signed-in user for mine', async () => {
@@ -61,11 +61,7 @@ describe('QuacksService', () => {
     const service = new QuacksService(repository);
     await service.getQuacks({ id: 'u1' } as Identity, '  @Duck   coffee ');
 
-    expect(repository.getQuacks).toHaveBeenCalledWith(
-      ['Duck', 'coffee'],
-      'u1',
-      undefined,
-    );
+    expect(repository.getQuacks).toHaveBeenCalledWith(['Duck', 'coffee'], 'u1');
   });
 
   it('creates a quack owned by the signed-in user', async () => {
