@@ -14,6 +14,7 @@ The worked example is the quack feed: `Quack` model → seed → repository → 
 - `pnpm dev` — everything: env files, Postgres (Docker), migrate, seed, both dev servers
 - `pnpm check-all` — lint + type-check + tests + build (same as CI)
 - `pnpm backend test` / `pnpm frontend test:ci` — unit tests
+- `pnpm frontend e2e` — Playwright against the running app (`E2E_BASE_URL` / `E2E_API_URL` when it runs on other ports)
 - `pnpm backend prisma:migrations:run` — create/apply migrations after schema changes
 
 ## Conventions
@@ -39,3 +40,7 @@ Don't reach for the browser to check your own work. Tests and type-checks are th
 `QuacksController` — and any controller copied from it — runs a controller-level `ValidationPipe` with `forbidNonWhitelisted: true`. Give a handler that had no `@Query()` or `@Body()` a DTO, and every parameter the DTO doesn't list turns from ignored into a 400. Tests and `pnpm check-all` stay green unless a test pins it, so nothing else will notice.
 
 Before changing an existing endpoint's inputs, check what `main` does with them (`git show main:<file>`). Validate a new parameter on its own, with a pipe on `@Query('q', …)` rather than a DTO for the whole query string — see `search-query.pipe.ts`.
+
+### Who may do something is decided on the server
+
+"Me" comes from the session (`@User()`), never from a `userId` in the URL, query or body. An ownership check belongs in the service, which has the data — see `QuacksService.deleteQuack`. Hiding a button in React is a convenience, not a check. Signed out is 401 (the guard); signed in but not allowed is 403.

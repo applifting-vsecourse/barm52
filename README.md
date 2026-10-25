@@ -51,6 +51,7 @@ pnpm check-all                     # lint + type-check + tests + builds (what CI
 pnpm backend test                  # backend unit tests (jest)
 pnpm backend test:db               # backend tests against a real Postgres (own quacker_test database, not in CI)
 pnpm frontend test:ci              # frontend component tests (vitest)
+pnpm frontend e2e                  # end-to-end tests (Playwright) against the running app from pnpm dev
 pnpm backend prisma:migrations:run # create + apply a migration after schema changes
 pnpm backend prisma:studio         # browse/edit the database
 pnpm backend seed                  # re-seed the database
