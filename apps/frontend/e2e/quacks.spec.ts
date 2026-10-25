@@ -23,8 +23,10 @@ test("author can post a quack and delete it", async ({ page }) => {
   await quack.getByRole("button", { name: "Delete quack" }).click()
   const dialog = page.getByRole("alertdialog", { name: "Delete this quack?" })
   await dialog.getByRole("button", { name: "Delete" }).click()
-  await expect(quack).toHaveCount(0)
+  // The dialog first: while it is open the feed behind it is hidden from the
+  // accessibility tree, so the quack would look gone even when it isn't.
   await expect(dialog).toHaveCount(0)
+  await expect(quack).toHaveCount(0)
 
   // Gone on the server too, not just hidden in this tab.
   await page.reload()
@@ -46,7 +48,7 @@ test("cancelling the confirmation keeps the quack", async ({ page }) => {
   await expect(quack).toBeVisible()
 })
 
-test("nobody can delete someone else's quack", async ({ page }) => {
+test("a regular user can't delete someone else's quack", async ({ page }) => {
   await signIn(page, "deepduckthoughts@example.com", "password2")
   await page.goto("/quacks")
 

@@ -16,6 +16,8 @@ type QuackListProps = {
   onReload?: () => void
   // The signed-in user. Their own quacks get a Delete action.
   currentUserId?: string
+  // A moderator (admin) gets a Delete action on every quack.
+  isAdmin?: boolean
   // The list holds only the signed-in user's quacks (the Mine tab).
   isMine?: boolean
   // Offered when Mine is empty: take the user to the post form.
@@ -30,6 +32,7 @@ export function QuackList({
   onClearSearch,
   onReload,
   currentUserId,
+  isAdmin = false,
   isMine = false,
   onWriteFirst,
 }: QuackListProps) {
@@ -110,7 +113,7 @@ export function QuackList({
         <QuackItem
           key={quack.id}
           quack={quack}
-          canDelete={currentUserId !== undefined && quack.userId === currentUserId}
+          canDelete={isAdmin || (currentUserId !== undefined && quack.userId === currentUserId)}
         />
       ))}
     </div>
