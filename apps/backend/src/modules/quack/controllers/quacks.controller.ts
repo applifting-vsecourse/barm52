@@ -24,6 +24,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { CreateQuackDto } from './dto/create-quack.dto';
+import { CreateReplyDto } from './dto/create-reply.dto';
 import { QuackResponseDto } from './dto/quack.response.dto';
 import { MineQueryPipe } from './pipes/mine-query.pipe';
 import { MAX_SEARCH_LENGTH, SearchQueryPipe } from './pipes/search-query.pipe';
@@ -98,12 +99,47 @@ export class QuacksController {
     return QuackResponseDto.fromDomain(quack, user.id);
   }
 
+  @Get(':id/replies')
+  @ApiOperation({ summary: 'The replies to a quack, oldest first' })
+  @ApiResponse({ status: 200, type: [QuackResponseDto] })
+  @ApiResponse({ status: 401, description: 'Not signed in' })
+  @ApiResponse({ status: 404, description: 'No such quack' })
+  async listReplies(
+    @User() user: Identity,
+    @Param('id') id: string,
+  ): Promise<QuackResponseDto[]> {
+    const replies = await this.quacksService.getReplies(id);
+    return replies.map((reply) => QuackResponseDto.fromDomain(reply, user.id));
+  }
+
+  @Post(':id/replies')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: 'Reply to a quack',
+    description: 'Replies go one level deep: a reply cannot be replied to.',
+  })
+  @ApiResponse({ status: 201, type: QuackResponseDto })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid text, or the quack is itself a reply',
+  })
+  @ApiResponse({ status: 401, description: 'Not signed in' })
+  @ApiResponse({ status: 404, description: 'No such quack, or it was deleted' })
+  async reply(
+    @User() user: Identity,
+    @Param('id') id: string,
+    @Body() body: CreateReplyDto,
+  ): Promise<QuackResponseDto> {
+    const reply = await this.quacksService.createReply(user, id, body.text);
+    return QuackResponseDto.fromDomain(reply, user.id);
+  }
+
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     summary: 'Delete one of your own quacks, or any quack as an admin',
     description:
-      "Admins moderate: they may delete anybody's quack. Its poll, answers and votes go with it.",
+      "Admins moderate: they may delete anybody's quack. A quack with replies stays as a placeholder with its text, mood and poll wiped; anything else is deleted for good.",
   })
   @ApiResponse({ status: 204, description: 'Deleted' })
   @ApiResponse({ status: 401, description: 'Not signed in' })

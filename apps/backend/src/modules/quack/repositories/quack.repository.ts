@@ -11,7 +11,7 @@ import {
   PollResultsVisibility,
   PollSuggestionMode,
 } from '@/modules/quack/domain/poll';
-import { Mood, Quack } from '@/modules/quack/domain/quack';
+import { Mood, Quack, QuackState } from '@/modules/quack/domain/quack';
 import { Injectable } from '@nestjs/common';
 import {
   CONSISTENT_READ,
@@ -25,6 +25,7 @@ const mapPrismaQuackToDomain = (
   quack: PrismaQuack & {
     user?: PrismaUser;
     poll?: (PrismaPoll & { options: PrismaPollOption[] }) | null;
+    _count?: { replies: number };
   },
   pollStats: PollStats = NO_POLL_STATS,
 ): Quack => ({
@@ -44,11 +45,15 @@ const mapPrismaQuackToDomain = (
   poll: quack.poll
     ? mapPrismaPollToDomain(quack.poll, quack.userId, pollStats)
     : null,
+  parentId: quack.parentId,
+  deleted: quack.deletedAt !== null,
+  replyCount: quack._count?.replies ?? 0,
 });
 
 const WITH_USER_AND_POLL = {
   user: true,
   poll: { include: { options: true } },
+  _count: { select: { replies: true } },
 } satisfies Prisma.QuackInclude;
 
 // Prisma hands `contains` to ILIKE as it is, so a typed %, _ or \ would act as a
@@ -74,10 +79,11 @@ const matchesWord = (word: string): Prisma.QuackWhereInput => {
 export class QuackRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  // Every quack, or only those where every word matches somewhere. No words
-  // means no filter. Poll options are not searched. Polls are read for
-  // `viewerId`, whose own vote comes with them. With `authorId`, only that
-  // user's quacks.
+  // Every top-level quack, or only those where every word matches somewhere.
+  // No words means no filter. Poll options and replies are not searched. Polls
+  // are read for `viewerId`, whose own vote comes with them. With `authorId`,
+  // only that user's quacks. A deleted quack shows only as the placeholder
+  // that holds its replies in the plain feed; a search or Mine never finds it.
   async getQuacks(
     words: string[] = [],
     viewerId = '',
@@ -87,6 +93,10 @@ export class QuackRepository {
       const quacks = await tx.quack.findMany({
         where: {
           AND: [
+            { parentId: null },
+            words.length > 0 || authorId
+              ? { deletedAt: null }
+              : { OR: [{ deletedAt: null }, { replies: { some: {} } }] },
             ...words.map(matchesWord),
             ...(authorId ? [{ userId: authorId }] : []),
           ],
@@ -148,18 +158,82 @@ export class QuackRepository {
     return mapPrismaQuackToDomain(quack);
   }
 
-  // Who wrote the quack, or null when there is no such quack.
-  async getAuthorId(quackId: string): Promise<string | null> {
-    const quack = await this.prisma.quack.findUnique({
-      where: { id: quackId },
-      select: { userId: true },
+  // The replies to a quack, oldest first. Replies carry no poll, so there are
+  // no poll numbers to read.
+  async getReplies(parentId: string): Promise<Quack[]> {
+    const replies = await this.prisma.quack.findMany({
+      where: { parentId },
+      include: WITH_USER_AND_POLL,
+      orderBy: { createdAt: 'asc' },
     });
-    return quack?.userId ?? null;
+    return replies.map((reply) => mapPrismaQuackToDomain(reply));
   }
 
-  // The poll, its answers and votes go with the quack (onDelete: Cascade). A
-  // quack that is already gone is not an error.
+  async createReply(reply: {
+    parentId: string;
+    userId: string;
+    text: string;
+  }): Promise<Quack> {
+    const quack = await this.prisma.quack.create({
+      data: {
+        text: reply.text,
+        mood: null,
+        user: { connect: { id: reply.userId } },
+        parent: { connect: { id: reply.parentId } },
+      },
+      include: WITH_USER_AND_POLL,
+    });
+    return mapPrismaQuackToDomain(quack);
+  }
+
+  // Who wrote the quack and where it sits, or null when there is no such quack.
+  async getQuackState(quackId: string): Promise<QuackState | null> {
+    const quack = await this.prisma.quack.findUnique({
+      where: { id: quackId },
+      select: { userId: true, parentId: true, deletedAt: true },
+    });
+    return quack
+      ? {
+          authorId: quack.userId,
+          parentId: quack.parentId,
+          deleted: quack.deletedAt !== null,
+        }
+      : null;
+  }
+
+  // How Quacker deletes, docs/adr/0001-delete-wipes-content-keeps-replies.md:
+  // a quack with replies keeps its row as a placeholder, with the text, mood
+  // and poll wiped; anything else is deleted for good (the poll, answers and
+  // votes cascade). A deleted reply that was the last one under a placeholder
+  // takes the placeholder with it. One transaction, so a reply never loses
+  // its parent halfway.
   async deleteQuack(quackId: string): Promise<void> {
-    await this.prisma.quack.deleteMany({ where: { id: quackId } });
+    await this.prisma.$transaction(async (tx) => {
+      const quack = await tx.quack.findUnique({
+        where: { id: quackId },
+        select: { parentId: true, _count: { select: { replies: true } } },
+      });
+      if (!quack) return;
+
+      if (quack._count.replies > 0) {
+        await tx.poll.deleteMany({ where: { quackId } });
+        await tx.quack.update({
+          where: { id: quackId },
+          data: { text: '', mood: null, deletedAt: new Date() },
+        });
+        return;
+      }
+
+      await tx.quack.delete({ where: { id: quackId } });
+      if (quack.parentId) {
+        await tx.quack.deleteMany({
+          where: {
+            id: quack.parentId,
+            deletedAt: { not: null },
+            replies: { none: {} },
+          },
+        });
+      }
+    });
   }
 }

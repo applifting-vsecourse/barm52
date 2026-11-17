@@ -40,6 +40,22 @@ export class QuackResponseDto {
   })
   poll!: PollResponseDto | null;
 
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    description: 'The quack this one replies to; null for a top-level quack',
+  })
+  parentId!: string | null;
+
+  @ApiProperty({
+    description:
+      'Deleted, but kept as a placeholder for its replies. Text is empty, mood and poll are null.',
+  })
+  deleted!: boolean;
+
+  @ApiProperty({ description: 'How many replies the quack has' })
+  replyCount!: number;
+
   // A poll looks different to each reader, so the reader and the moment of
   // reading come along. Without a reader there is nothing to hide from.
   static fromDomain(
@@ -66,6 +82,9 @@ export class QuackResponseDto {
       poll: quack.poll
         ? PollResponseDto.fromDomain(toPollView(quack.poll, viewerId, now))
         : null,
+      parentId: quack.parentId ?? null,
+      deleted: quack.deleted ?? false,
+      replyCount: quack.replyCount ?? 0,
     };
   }
 }

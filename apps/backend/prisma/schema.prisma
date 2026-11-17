@@ -32,17 +32,27 @@ enum Mood {
 }
 
 model Quack {
-  id        String   @id @default(cuid())
-  text      String   @db.Text
+  id        String    @id @default(cuid())
+  text      String    @db.Text
   mood      Mood?
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId    String
   // The optional poll attached to the quack. The quack text is its question.
   poll      Poll?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @default(now()) @updatedAt
+  // Set on a reply: the top-level quack it answers. Replies go one level deep,
+  // so a reply never has replies of its own. Restrict: the database refuses to
+  // delete a quack that still has replies (see docs/adr/0001).
+  parent    Quack?    @relation("QuackReplies", fields: [parentId], references: [id], onDelete: Restrict)
+  parentId  String?
+  replies   Quack[]   @relation("QuackReplies")
+  // Set when a quack with replies is deleted: its text, mood and poll are wiped
+  // and only this placeholder row stays, holding the replies together.
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @default(now()) @updatedAt
 
   @@index([userId])
+  @@index([parentId])
   @@map("quack")
 }
 
@@ -190,9 +200,9 @@ model User {
   displayUsername String? @db.VarChar(50)
 
   // Profile settings the user edits on the Settings page.
-  bio             String? @db.VarChar(160)
+  bio         String? @db.VarChar(160)
   // Preselected in the new-quack form; null for no mood.
-  defaultMood     Mood?
+  defaultMood Mood?
 
   @@unique([email])
   @@unique([username])

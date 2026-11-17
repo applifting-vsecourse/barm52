@@ -32,6 +32,8 @@ const aPrismaQuack = (
   userId: 'u1',
   createdAt: new Date('2026-01-01T12:00:00Z'),
   updatedAt: new Date('2026-01-01T12:00:00Z'),
+  parentId: null,
+  deletedAt: null,
   user: aPrismaUser(),
   ...overrides,
 });
@@ -108,15 +110,22 @@ describe('QuackRepository', () => {
       ],
     });
 
+    // Only top-level quacks are listed; replies live under their quack.
+    const TOP_LEVEL = { parentId: null };
+    // The plain feed keeps a deleted quack's placeholder while it has replies.
+    const IN_FEED = { OR: [{ deletedAt: null }, { replies: { some: {} } }] };
+    // A search never finds a deleted quack, not even by its author's name.
+    const NOT_DELETED = { deletedAt: null };
+
     beforeEach(() => {
       quack.findMany.mockResolvedValue([]);
     });
 
-    it('does not filter without words', async () => {
+    it('lists the top-level feed without words', async () => {
       await repository.getQuacks();
 
       expect(quack.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { AND: [] } }),
+        expect.objectContaining({ where: { AND: [TOP_LEVEL, IN_FEED] } }),
       );
     });
 
@@ -125,7 +134,9 @@ describe('QuackRepository', () => {
 
       expect(quack.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { AND: [matches('duck'), matches('coffee')] },
+          where: {
+            AND: [TOP_LEVEL, NOT_DELETED, matches('duck'), matches('coffee')],
+          },
           orderBy: { createdAt: 'desc' },
         }),
       );
@@ -142,7 +153,9 @@ describe('QuackRepository', () => {
       await repository.getQuacks([word]);
 
       expect(quack.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { AND: [matches(escaped)] } }),
+        expect.objectContaining({
+          where: { AND: [TOP_LEVEL, NOT_DELETED, matches(escaped)] },
+        }),
       );
     });
   });
