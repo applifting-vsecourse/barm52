@@ -3,7 +3,7 @@ import { expect, test, type Page } from "@playwright/test"
 import { API } from "./env"
 import { signIn } from "./signIn"
 
-type WireQuack = { id: string; text: string; user: { username: string } }
+type WireQuack = { id: string; text: string; deleted: boolean; user: { username: string } }
 
 const listQuacks = async (page: Page): Promise<WireQuack[]> =>
   (await page.request.get(`${API}/quacks`)).json() as Promise<WireQuack[]>
@@ -41,7 +41,8 @@ test("admin sees Delete on every quack", async ({ page }) => {
   await signIn(page, "admin@example.com", "adminpassword")
   await page.goto("/quacks")
 
-  const articles = page.getByRole("article")
+  // A deleted quack's placeholder has nothing left to delete.
+  const articles = page.getByRole("article").filter({ hasNotText: "This quack was deleted." })
   await expect(articles.filter({ hasNotText: "@superadmin" }).first()).toBeVisible()
   await expect(articles.getByRole("button", { name: "Delete quack" })).toHaveCount(
     await articles.count(),
@@ -51,7 +52,9 @@ test("admin sees Delete on every quack", async ({ page }) => {
 test("a name with Admin in it is not the admin role: 403", async ({ page }) => {
   // "Pond Admin" from the seed is a regular user. Only the role counts.
   await signIn(page, "pondadmin@example.com", "password5")
-  const notMine = (await listQuacks(page)).find((q) => q.user.username !== "PondAdmin")!
+  const notMine = (await listQuacks(page)).find(
+    (q) => !q.deleted && q.user.username !== "PondAdmin",
+  )!
 
   const response = await page.request.delete(`${API}/quacks/${notMine.id}`)
   expect(response.status()).toBe(403)

@@ -113,7 +113,9 @@ export function QuackList({
         <QuackItem
           key={quack.id}
           quack={quack}
-          canDelete={isAdmin || (currentUserId !== undefined && quack.userId === currentUserId)}
+          currentUserId={currentUserId}
+          isAdmin={isAdmin}
+          shouldShowReplies
         />
       ))}
     </div>

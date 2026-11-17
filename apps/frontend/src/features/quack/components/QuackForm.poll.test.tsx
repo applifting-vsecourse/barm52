@@ -19,6 +19,9 @@ const created: Quack = {
   createdAt: new Date("2026-01-01T12:00:00Z"),
   user: { id: "u1", name: "Caffeinated Duck", username: "CaffeinatedDuck" },
   poll: null,
+  parentId: null,
+  deleted: false,
+  replyCount: 0,
 }
 
 const posted = () => vi.mocked(addQuack).mock.calls[0]?.[0]
