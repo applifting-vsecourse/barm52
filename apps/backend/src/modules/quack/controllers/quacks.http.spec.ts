@@ -3,7 +3,7 @@
 // codes are what the story promises a direct API caller, so they are checked
 // here rather than in the service spec.
 import { request as httpRequest } from 'http';
-import { Quack } from '@/modules/quack/domain/quack';
+import { Quack, QuackState } from '@/modules/quack/domain/quack';
 import { QuackRepository } from '@/modules/quack/repositories/quack.repository';
 import { QuacksService } from '@/modules/quack/services/quacks.service';
 import { AuthenticatedUserGuard } from '@/shared/auth/guards/authenticated-user.guard';
@@ -30,6 +30,13 @@ const aQuack = (overrides: Partial<Quack> = {}): Quack => ({
   user: { id: 'u1', name: 'Caffeinated Duck', username: 'CaffeinatedDuck' },
   poll: null,
   ...overrides,
+});
+
+// A top-level quack by `authorId` that hasn't been deleted.
+const authored = (authorId: string): QuackState => ({
+  authorId,
+  parentId: null,
+  deleted: false,
 });
 
 describe('quacks over HTTP', () => {
@@ -67,7 +74,7 @@ describe('quacks over HTTP', () => {
   beforeEach(() => {
     session = { user: { id: 'u1', role: 'user' } };
     quackRepository.getQuacks.mockReset();
-    quackRepository.getAuthorId.mockReset();
+    quackRepository.getQuackState.mockReset();
     quackRepository.deleteQuack.mockReset();
     quackRepository.getQuacks.mockResolvedValue([aQuack()]);
   });
@@ -96,7 +103,7 @@ describe('quacks over HTTP', () => {
 
   describe('DELETE /quacks/:id', () => {
     it('deletes your own quack and answers 204 with no body', async () => {
-      quackRepository.getAuthorId.mockResolvedValue('u1');
+      quackRepository.getQuackState.mockResolvedValue(authored('u1'));
 
       const response = await send('DELETE', '/quacks/q1');
 
@@ -106,7 +113,7 @@ describe('quacks over HTTP', () => {
     });
 
     it("answers 403 for someone else's quack and deletes nothing", async () => {
-      quackRepository.getAuthorId.mockResolvedValue('u2');
+      quackRepository.getQuackState.mockResolvedValue(authored('u2'));
 
       const response = await send('DELETE', '/quacks/q1');
 
@@ -116,7 +123,7 @@ describe('quacks over HTTP', () => {
 
     it("lets an admin delete someone else's quack: 204", async () => {
       session = { user: { id: 'a1', role: 'admin' } };
-      quackRepository.getAuthorId.mockResolvedValue('u1');
+      quackRepository.getQuackState.mockResolvedValue(authored('u1'));
 
       const response = await send('DELETE', '/quacks/q1');
 
@@ -125,7 +132,7 @@ describe('quacks over HTTP', () => {
     });
 
     it('takes the role from the session, not from the request', async () => {
-      quackRepository.getAuthorId.mockResolvedValue('u2');
+      quackRepository.getQuackState.mockResolvedValue(authored('u2'));
 
       const response = await send('DELETE', '/quacks/q1?role=admin');
 
@@ -134,7 +141,7 @@ describe('quacks over HTTP', () => {
     });
 
     it('answers 404 for a quack that does not exist', async () => {
-      quackRepository.getAuthorId.mockResolvedValue(null);
+      quackRepository.getQuackState.mockResolvedValue(null);
 
       const response = await send('DELETE', '/quacks/nope');
 
@@ -148,12 +155,12 @@ describe('quacks over HTTP', () => {
       const response = await send('DELETE', '/quacks/q1');
 
       expect(response.status).toBe(401);
-      expect(quackRepository.getAuthorId).not.toHaveBeenCalled();
+      expect(quackRepository.getQuackState).not.toHaveBeenCalled();
       expect(quackRepository.deleteQuack).not.toHaveBeenCalled();
     });
 
     it('ignores a user id in the query: who you are comes from the session', async () => {
-      quackRepository.getAuthorId.mockResolvedValue('u2');
+      quackRepository.getQuackState.mockResolvedValue(authored('u2'));
 
       const response = await send('DELETE', '/quacks/q1?userId=u2');
 

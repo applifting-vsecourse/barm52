@@ -22,4 +22,17 @@ export type Quack = {
   user?: QuackAuthor;
   // Loaded with the list and on create; null for a quack without a poll.
   poll?: Poll | null;
+  // The top-level quack this one replies to; null for a top-level quack.
+  parentId?: string | null;
+  // A deleted quack that still has replies: text, mood and poll are gone and
+  // only the placeholder is left (docs/adr/0001).
+  deleted?: boolean;
+  replyCount?: number;
+};
+
+// What deleting or replying needs to know about a quack, without its content.
+export type QuackState = {
+  authorId: string;
+  parentId: string | null;
+  deleted: boolean;
 };

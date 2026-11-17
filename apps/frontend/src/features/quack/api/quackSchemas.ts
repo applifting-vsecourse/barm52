@@ -58,6 +58,12 @@ export const quackSchema = z.object({
   user: quackUserSchema,
   // The quack text is the poll's question. Null for a quack without a poll.
   poll: pollSchema.nullable().default(null),
+  // The quack this one replies to; null for a top-level quack.
+  parentId: z.string().nullable().default(null),
+  // Deleted, but kept as a placeholder for its replies: the text is empty and
+  // mood and poll are null.
+  deleted: z.boolean().default(false),
+  replyCount: z.number().int().default(0),
 })
 
 export const quacksSchema = z.array(quackSchema)

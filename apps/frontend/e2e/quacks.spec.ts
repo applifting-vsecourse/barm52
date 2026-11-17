@@ -4,10 +4,11 @@ import { API } from "./env"
 import { signIn, signUpNewUser } from "./signIn"
 
 async function findQuackNotBy(page: Page, username: string): Promise<{ id: string }> {
-  const quacks: { id: string; user: { username: string } }[] = await (
+  const quacks: { id: string; deleted: boolean; user: { username: string } }[] = await (
     await page.request.get(`${API}/quacks`)
   ).json()
-  return quacks.find((quack) => quack.user.username !== username)!
+  // A deleted quack's placeholder can't be deleted again (404), so skip it.
+  return quacks.find((quack) => !quack.deleted && quack.user.username !== username)!
 }
 
 test("author can post a quack and delete it", async ({ page }) => {

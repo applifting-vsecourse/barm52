@@ -1,78 +1,89 @@
-# Moderace: admin smaže jakýkoli quack
+# Odpovědi na quacky
 
-Status: **implementováno, bez otevřených rozhodnutí.** Navazuje na story „Delete + Mine“ (autor smaže svůj quack, záložky All / Mine).
+Status: **implementováno, bez otevřených rozhodnutí.** Navazuje na mazání a moderaci (`story-moderation.md`).
 
 ## Zadání
 
-> Someone started posting nasty quacks. Their author won't delete them and right now we can't do anything about it. We need a moderator who can delete anything. Nothing more for now.
+> People discuss under quacks by posting a new quack that starts with '@name …', and nobody can tell what anyone is replying to. I want people to reply to a quack and see the replies under it. Replies belong to the people who wrote them: if an author deletes a quack that already has replies, the replies must not disappear with it. At the same time, when someone deletes their quack, its content has to really disappear from the app.
 
 ## Příběh
 
-**Jako** moderátor Quackeru (uživatel s rolí `admin`)
-**chci** smazat jakýkoli quack, i cizí,
-**abych** mohl odstranit nevhodný obsah, který jeho autor sám smazat nechce.
+**Jako** přihlášený uživatel Quackeru
+**chci** odpovědět přímo na quack a vidět odpovědi pod ním,
+**abych** věděl, kdo na co reaguje, a nemusel psát nový quack začínající „@jméno“.
 
-Cíl je jediný: zlobivý quack jde odstranit. Nic navíc oproti tomuto dokumentu se nedělá („Nothing more for now“).
+## Upřesňující otázky
 
-## Slovník
-
-- **Moderátor**: uživatel s rolí `admin`. Role už existuje (enum `UserRole` v `schema.prisma`) a BetterAuth ji dává do session (`user.role`). Nová role se nezavádí.
-- **Autor**: uživatel, který quack napsal (`quack.userId`).
-- **Běžný uživatel**: kdokoli s rolí `user`, i když má v názvu „Admin“ (např. „Pond Admin“ ze seedu).
+1. **Co se stane, když autor smaže quack, na který už někdo odpověděl?**
+   Quack zůstane jako zástupné místo „This quack was deleted.“: text, nálada a anketa se smažou, odpovědi zůstanou pod ním. Quack bez odpovědí se smaže úplně, jako dosud.
+2. **Jak uložit odpověď?**
+   Jako quack s odkazem na rodiče (`parentId`).
+3. **Kde se odpovědi zobrazí?**
+   Jen pod svým quackem, sbalené za „N replies“. Ve feedu jsou jen hlavní quacky.
+4. **Odpovídat i na odpovědi?**
+   Ne, jen jedna úroveň.
+5. **Co odpověď obsahuje, a kam patří ve Mine a ve vyhledávání?**
+   Jen text (bez nálady a ankety). Záložka Mine a vyhledávání pracují s hlavními quacky. Smazaná odpověď zmizí úplně, a když tím zástupnému místu nezbude žádná odpověď, zmizí i ono.
 
 ## Akceptační kritéria
 
 Texty v uvozovkách jsou texty rozhraní (aplikace je anglicky).
 
-**Mazání moderátorem**
+**Odpovídání**
 
-1. Admin vidí akci „Delete quack“ u **každého** quacku ve feedu, nejen u svých.
-2. Před smazáním se aplikace zeptá stejným potvrzovacím dialogem jako autora („Delete this quack?“, Cancel / Delete). Cancel nic nesmaže.
-3. Po potvrzení quack zmizí z feedu adminovi i všem ostatním, včetně autora. Spolu s ním zmizí jeho anketa, odpovědi a hlasy.
-4. Admin smaže cizí quack i přímým voláním API: `DELETE /api/quacks/:id` → `204`.
+1. Pod každým hlavním quackem je tlačítko „Reply“, nebo „1 reply“ / „N replies“, když už odpovědi má. Po kliknutí se rozbalí odpovědi (od nejstarší) a formulář „Your reply“ s tlačítkem „Send reply“.
+2. Odeslaná odpověď se objeví pod quackem a počet odpovědí se zvýší. Prázdná odpověď nebo odpověď delší než 280 znaků se neodešle a pod polem je důvod.
+3. Odpovědi nejsou ve feedu jako samostatné quacky.
+4. Na odpověď odpovědět nejde (`400`). Na smazaný quack odpovědět nejde (`404`).
+5. Autor odpovědi je vždy přihlášený uživatel ze session.
 
-**Nic se nemění pro ostatní**
+**Mazání**
 
-5. Autor dál maže své quacky (`204`).
-6. Běžný uživatel cizí quack nesmaže ani přes API → `403`. Tlačítko u cizích quacků nevidí.
-7. Nepřihlášený → `401`.
-8. Role se bere jen ze session. Nic v požadavku (`?role=admin`, `userId`, tělo) ji nezmění. Jméno „Pond Admin“ adminem nedělá → `403`.
-9. Neexistující quack → `404`.
-
-**Kde je kontrola**
-
-10. Rozhodnutí „smí mazat“ je jedna podmínka v backend service, `QuacksService.deleteQuack`: `if (!isOwner && !isAdmin) throw new ForbiddenException()`. UI tlačítko jen skrývá a server kontroluje vždy.
-
-## Upřesňující otázky
-
-Story se doptávala, dokud nezůstalo žádné otevřené rozhodnutí.
-
-1. **Kdo je moderátor? Zavádíme novou roli?**
-   Existující role `admin`. Žádná nová role, „Nothing more for now“.
-2. **Co přesně admin uvidí a jak bude mazat?**
-   Tlačítko Delete u každého quacku a stejný potvrzovací dialog jako autor. Žádný nový endpoint ani stránka.
-3. **Mazat natrvalo, nebo jen skrýt? Důvod, log, upozornění autora?**
-   Natrvalo, včetně ankety a hlasů. Žádný důvod, log ani upozornění, to bude případně později.
+6. Smazání quacku bez odpovědí ho odstraní úplně (jako dosud).
+7. Smazání quacku s odpověďmi ponechá ve feedu „This quack was deleted.“ bez textu, autora, nálady a ankety. Odpovědi pod ním zůstanou a jdou dál číst.
+8. Text smazaného quacku není nikde: ani ve feedu, ani v odpovědích, ani ve vyhledávání (ani podle jména autora). Je smazaný i z databáze.
+9. Odpověď smaže její autor nebo admin (stejné pravidlo jako u quacku). Smazaná odpověď zmizí úplně.
+10. Zástupné místo nejde smazat znovu ani na něj odpovědět (`404`).
 
 ## Rozhodnutí
 
-| Rozhodnutí                                                                                  | Proč                                                                | Kdo      |
-| ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- | -------- |
-| Moderátor = existující role `admin`, žádná nová role `moderator`                            | „Nothing more for now“; role i účet `admin@example.com` už existují | zadání   |
-| Stejný endpoint `DELETE /api/quacks/:id` a stejný potvrzovací dialog                        | je to tatáž akce, jen pro víc lidí                                  | uživatel |
-| Kontrola vlastník-nebo-admin v service: `if (!isOwner && !isAdmin)`, ne v guardu `@Roles`   | vlastnictví potřebuje data (autora quacku), ta má service           | zadání   |
-| Role ze session (`@User()` → `user.role`), nikdy z požadavku                                | role si nikdo nepřidělí sám (`input: false`)                        | zadání   |
-| Route předá `isAdmin={user?.role === "admin"}`, feed ukáže Delete při `isMine \|\| isAdmin` | features se navzájem neimportují                                    | zadání   |
-| Trvalé smazání včetně ankety a hlasů; bez soft delete, důvodu, logu a upozornění autora     | „Nothing more for now“                                              | uživatel |
-| Záložka Mine u admina ukazuje jen jeho vlastní quacky                                       | Mine znamená „moje“, ne „co smím mazat“                             | uživatel |
-| Mimo rozsah: role `moderator`, stránka Stats, blokování, nahlašování, e-maily               | nejsou v zadání                                                     | uživatel |
+| Rozhodnutí                                                                                     | Zamítnutá možnost a proč                                                                                                                                                                                                                                                     |
+| ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Smazaný quack s odpověďmi zůstane jako zástupné místo (`deletedAt`), obsah se vymaže. ADR 0001 | **Hard delete s kaskádou**: odpovědi by zmizely, zadání to zakazuje. **Hard delete, odpovědi s `parentId = null`**: odpovědi ztratí kontext a vypadají jako samostatné quacky. **Vždy soft delete**: v DB by se hromadily prázdné řádky a každý dotaz by je musel filtrovat. |
+| Odpověď = `Quack` s `parentId` (self-relace)                                                   | **Samostatná tabulka `Reply`**: zdvojila by mazání, moderaci, autora a API.                                                                                                                                                                                                  |
+| Odpovědi jen pod quackem, ve feedu jen hlavní quacky                                           | **Odpovědi i ve feedu**: feed by se plnil duplicitami.                                                                                                                                                                                                                       |
+| Jedna úroveň odpovědí                                                                          | **Libovolná hloubka**: víc UI a dotazů, zadání ji nechce. Model s `parentId` ji později umožní bez migrace.                                                                                                                                                                  |
+| Počet odpovědí se počítá při čtení (`_count`), neukládá se                                     | **Uložený čítač**: druhá kopie, kterou by šlo zapomenout aktualizovat; při dnešním objemu zbytečný.                                                                                                                                                                          |
+| Cizí klíč `parentId` s `onDelete: Restrict`                                                    | **`Cascade`**: smazání rodiče by tiše smazalo cizí odpovědi. **`SetNull`**: osiřelé odpovědi (viz výše). Restrict nechá databázi hlídat pravidlo z ADR.                                                                                                                      |
 
 **Otevřená rozhodnutí: žádná.**
 
-## Ověření
+## Schéma
 
-- **E2E** (`apps/frontend/e2e/moderation.spec.ts`): autor vytvoří quack, admin ho v UI smaže a quack zmizí i pro autora. Admin vidí Delete u každého quacku. „Pond Admin“ dostane `403`. Běžný uživatel dostane `403` (`quacks.spec.ts`: „a regular user can't delete someone else's quack“).
-- **Test selže, když se kontrola vypne** (ověřeno ručně):
-  - podmínka odstraněná úplně → testy běžného uživatele a „Pond Admina“ padají s `Expected: 403, Received: 204`;
-  - z podmínky vypadne `isAdmin` → test admina padá (quack po pokusu o smazání pořád existuje).
-- **Backend**: service (admin smaže cizí, ostatní dostanou `ForbiddenException`) a HTTP spec (`204` admin, `403` s `?role=admin`, `401`, `404`).
+```prisma
+model Quack {
+  // … beze změny …
+  parent    Quack?    @relation("QuackReplies", fields: [parentId], references: [id], onDelete: Restrict)
+  parentId  String?
+  replies   Quack[]   @relation("QuackReplies")
+  deletedAt DateTime?
+
+  @@index([parentId])
+}
+```
+
+Migrace `20261117120000_add_quack_replies`: dva nullable sloupce, index a cizí klíč.
+
+## Kontrola návrhu
+
+1. **Jde všechno, co uživatel vidí, přečíst jednoduchými dotazy?** Ano:
+   - feed: `quack where parentId is null and (deletedAt is null or exists reply)` + `_count.replies`;
+   - odpovědi: `quack where parentId = :id order by createdAt`;
+   - hledání a Mine: totéž co feed, ale jen `deletedAt is null`.
+2. **Je něco uložené dvakrát?** Ne. Počet odpovědí se počítá při čtení, autor i rodič jsou jen odkazy.
+3. **Co se stane se souvisejícími řádky při smazání quacku?**
+   - Bez odpovědí: řádek se smaže a anketa, odpovědi v ní a hlasy kaskádou s ním.
+   - S odpověďmi: řádek zůstane s prázdným textem, bez nálady a s `deletedAt`, anketa se smaže a odpovědi zůstanou.
+   - Smazaná poslední odpověď smaže i prázdné zástupné místo.
+   - Databáze (`Restrict`) odmítne smazat quack, který odpovědi ještě má.
+4. **Projde migrace na produkci s daty?** Ano. Jen přidává nullable sloupce, index a cizí klíč; existující quacky zůstanou hlavní a nesmazané, nic se nepřepisuje.

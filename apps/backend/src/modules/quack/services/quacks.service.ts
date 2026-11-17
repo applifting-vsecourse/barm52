@@ -9,6 +9,7 @@ import { searchWords } from '@/modules/quack/domain/search-words';
 import { QuackRepository } from '@/modules/quack/repositories/quack.repository';
 import { Identity } from '@/shared/auth/domain/identity';
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   Logger,
@@ -49,16 +50,42 @@ export class QuacksService {
   // request. Hiding the button in the UI is a convenience; this check is what
   // keeps a direct API call out.
   async deleteQuack(user: Identity, quackId: string): Promise<void> {
-    const authorId = await this.quackRepository.getAuthorId(quackId);
-    if (authorId === null) throw new NotFoundException('Quack not found');
+    const quack = await this.quackRepository.getQuackState(quackId);
+    // A placeholder's content is already gone; there is nothing left to delete.
+    if (!quack || quack.deleted) throw quackNotFound();
 
-    const isOwner = authorId === user.id;
+    const isOwner = quack.authorId === user.id;
     const isAdmin = user.role === 'admin';
     if (!isOwner && !isAdmin) {
       throw new ForbiddenException('You can only delete your own quacks');
     }
 
     await this.quackRepository.deleteQuack(quackId);
+  }
+
+  async getReplies(quackId: string): Promise<Quack[]> {
+    const quack = await this.quackRepository.getQuackState(quackId);
+    if (!quack) throw quackNotFound();
+    return this.quackRepository.getReplies(quackId);
+  }
+
+  // Replies go one level deep: only a top-level quack that hasn't been deleted
+  // takes them. The author is the session's user, as for any quack.
+  async createReply(
+    user: Identity,
+    quackId: string,
+    text: string,
+  ): Promise<Quack> {
+    const parent = await this.quackRepository.getQuackState(quackId);
+    if (!parent || parent.deleted) throw quackNotFound();
+    if (parent.parentId !== null) {
+      throw new BadRequestException('You can only reply to a top-level quack');
+    }
+    return this.quackRepository.createReply({
+      parentId: quackId,
+      userId: user.id,
+      text,
+    });
   }
 
   async createQuack(
@@ -103,6 +130,9 @@ export class QuacksService {
     return quack;
   }
 }
+
+const quackNotFound = (): NotFoundException =>
+  new NotFoundException('Quack not found');
 
 // The end is computed here, from the server's clock; the client never sends one.
 const endOfPoll = (length: PollLength, createdAt: Date): Date | null => {

@@ -1,9 +1,14 @@
 // Example unit test — the pattern to copy for your own services.
 // The repository is mocked, so the test exercises the service in isolation.
-import { Quack } from '@/modules/quack/domain/quack';
+import { Quack, QuackState } from '@/modules/quack/domain/quack';
 import { QuackRepository } from '@/modules/quack/repositories/quack.repository';
 import { Identity } from '@/shared/auth/domain/identity';
-import { ForbiddenException, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { mock } from 'jest-mock-extended';
 import { QuacksService } from './quacks.service';
 
@@ -16,6 +21,13 @@ const aQuack = (overrides: Partial<Quack> = {}): Quack => ({
   updatedAt: new Date('2026-01-01T12:00:00Z'),
   user: { id: 'u1', name: 'Caffeinated Duck', username: 'CaffeinatedDuck' },
   ...overrides,
+});
+
+// A top-level quack by `authorId` that hasn't been deleted.
+const authored = (authorId: string): QuackState => ({
+  authorId,
+  parentId: null,
+  deleted: false,
 });
 
 describe('QuacksService', () => {
@@ -120,7 +132,7 @@ describe('QuacksService', () => {
   describe('deleting a quack', () => {
     it('lets the author delete their own quack', async () => {
       const repository = mock<QuackRepository>();
-      repository.getAuthorId.mockResolvedValue('u1');
+      repository.getQuackState.mockResolvedValue(authored('u1'));
 
       const service = new QuacksService(repository);
       await service.deleteQuack({ id: 'u1', role: 'user' } as Identity, 'q1');
@@ -130,7 +142,7 @@ describe('QuacksService', () => {
 
     it("refuses someone else's quack and deletes nothing", async () => {
       const repository = mock<QuackRepository>();
-      repository.getAuthorId.mockResolvedValue('u1');
+      repository.getQuackState.mockResolvedValue(authored('u1'));
 
       const service = new QuacksService(repository);
 
@@ -142,7 +154,7 @@ describe('QuacksService', () => {
 
     it("lets an admin delete someone else's quack", async () => {
       const repository = mock<QuackRepository>();
-      repository.getAuthorId.mockResolvedValue('u1');
+      repository.getQuackState.mockResolvedValue(authored('u1'));
 
       const service = new QuacksService(repository);
       await service.deleteQuack({ id: 'a1', role: 'admin' } as Identity, 'q1');
@@ -152,7 +164,7 @@ describe('QuacksService', () => {
 
     it('answers not found for a quack that does not exist', async () => {
       const repository = mock<QuackRepository>();
-      repository.getAuthorId.mockResolvedValue(null);
+      repository.getQuackState.mockResolvedValue(null);
 
       const service = new QuacksService(repository);
 
@@ -160,6 +172,67 @@ describe('QuacksService', () => {
         service.deleteQuack({ id: 'u1', role: 'user' } as Identity, 'gone'),
       ).rejects.toThrow(NotFoundException);
       expect(repository.deleteQuack).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('replies', () => {
+    it('answers not found when deleting a placeholder again', async () => {
+      const repository = mock<QuackRepository>();
+      repository.getQuackState.mockResolvedValue({
+        ...authored('u1'),
+        deleted: true,
+      });
+
+      const service = new QuacksService(repository);
+
+      await expect(
+        service.deleteQuack({ id: 'u1', role: 'user' } as Identity, 'q1'),
+      ).rejects.toThrow(NotFoundException);
+      expect(repository.deleteQuack).not.toHaveBeenCalled();
+    });
+
+    it('stores a reply by the signed-in user under the quack', async () => {
+      const repository = mock<QuackRepository>();
+      repository.getQuackState.mockResolvedValue(authored('u2'));
+      repository.createReply.mockResolvedValue(aQuack({ parentId: 'q1' }));
+
+      const service = new QuacksService(repository);
+      await service.createReply({ id: 'u1' } as Identity, 'q1', 'agreed');
+
+      expect(repository.createReply).toHaveBeenCalledWith({
+        parentId: 'q1',
+        userId: 'u1',
+        text: 'agreed',
+      });
+    });
+
+    it('refuses a reply to a reply', async () => {
+      const repository = mock<QuackRepository>();
+      repository.getQuackState.mockResolvedValue({
+        ...authored('u2'),
+        parentId: 'q0',
+      });
+
+      const service = new QuacksService(repository);
+
+      await expect(
+        service.createReply({ id: 'u1' } as Identity, 'r1', 'agreed'),
+      ).rejects.toThrow(BadRequestException);
+      expect(repository.createReply).not.toHaveBeenCalled();
+    });
+
+    it('refuses a reply to a deleted quack', async () => {
+      const repository = mock<QuackRepository>();
+      repository.getQuackState.mockResolvedValue({
+        ...authored('u2'),
+        deleted: true,
+      });
+
+      const service = new QuacksService(repository);
+
+      await expect(
+        service.createReply({ id: 'u1' } as Identity, 'q1', 'agreed'),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 });

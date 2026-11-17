@@ -5,17 +5,49 @@ import { formatDate } from "@/lib/date"
 import type { Quack } from "@/features/quack/api/quackSchemas"
 import { DeleteQuackButton } from "@/features/quack/components/DeleteQuackButton"
 import { PollView } from "@/features/quack/components/PollView"
+import { QuackReplies } from "@/features/quack/components/QuackReplies"
 import { UsersName } from "@/features/quack/components/UsersName"
 import { UsersUserName } from "@/features/quack/components/UsersUserName"
 
 type QuackItemProps = {
   quack: Quack
-  // Shows the Delete action. Convenience only: the server decides for itself.
-  canDelete?: boolean
+  // The signed-in user. Their own quacks, or every quack for an admin, get a
+  // Delete action. Convenience only: the server decides for itself.
+  currentUserId?: string
+  isAdmin?: boolean
+  // Replies under a top-level quack. Off where the feed is only a preview.
+  shouldShowReplies?: boolean
 }
 
-export function QuackItem({ quack, canDelete = false }: QuackItemProps) {
+export function QuackItem({
+  quack,
+  currentUserId,
+  isAdmin = false,
+  shouldShowReplies = false,
+}: QuackItemProps) {
   const { name, username } = quack.user
+  const canDelete = isAdmin || (currentUserId !== undefined && quack.userId === currentUserId)
+  const replies =
+    shouldShowReplies && quack.parentId === null ? (
+      <QuackReplies
+        quackId={quack.id}
+        replyCount={quack.replyCount}
+        canReply={!quack.deleted}
+        currentUserId={currentUserId}
+        isAdmin={isAdmin}
+      />
+    ) : null
+
+  // Deleted, but its replies hold it in place. Nothing of what it said, nor
+  // who said it, is shown.
+  if (quack.deleted) {
+    return (
+      <article className="flex w-full flex-col gap-2 border-b border-border pt-2 pb-4 last:border-b-0">
+        <p className="py-2 text-sm text-muted-foreground">This quack was deleted.</p>
+        {replies}
+      </article>
+    )
+  }
 
   const initials = name
     .split(" ")
@@ -55,6 +87,7 @@ export function QuackItem({ quack, canDelete = false }: QuackItemProps) {
             poll={quack.poll}
           />
         ) : null}
+        {replies}
       </div>
 
       {canDelete ? (
