@@ -5,6 +5,7 @@ import { formatDate } from "@/lib/date"
 import type { Quack } from "@/features/quack/api/quackSchemas"
 import { DeleteQuackButton } from "@/features/quack/components/DeleteQuackButton"
 import { PollView } from "@/features/quack/components/PollView"
+import { QuackLikeButton } from "@/features/quack/components/QuackLikeButton"
 import { QuackReplies } from "@/features/quack/components/QuackReplies"
 import { UsersName } from "@/features/quack/components/UsersName"
 import { UsersUserName } from "@/features/quack/components/UsersUserName"
@@ -85,6 +86,12 @@ export function QuackItem({
           <PollView
             quackId={quack.id}
             poll={quack.poll}
+          />
+        ) : null}
+        {quack.likes && currentUserId ? (
+          <QuackLikeButton
+            quackId={quack.id}
+            likes={quack.likes}
           />
         ) : null}
         {replies}

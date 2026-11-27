@@ -32,28 +32,41 @@ enum Mood {
 }
 
 model Quack {
-  id        String    @id @default(cuid())
-  text      String    @db.Text
+  id        String      @id @default(cuid())
+  text      String      @db.Text
   mood      Mood?
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId    String
   // The optional poll attached to the quack. The quack text is its question.
   poll      Poll?
   // Set on a reply: the top-level quack it answers. Replies go one level deep,
   // so a reply never has replies of its own. Restrict: the database refuses to
   // delete a quack that still has replies (see docs/adr/0001).
-  parent    Quack?    @relation("QuackReplies", fields: [parentId], references: [id], onDelete: Restrict)
+  parent    Quack?      @relation("QuackReplies", fields: [parentId], references: [id], onDelete: Restrict)
   parentId  String?
-  replies   Quack[]   @relation("QuackReplies")
+  replies   Quack[]     @relation("QuackReplies")
   // Set when a quack with replies is deleted: its text, mood and poll are wiped
   // and only this placeholder row stays, holding the replies together.
   deletedAt DateTime?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @default(now()) @updatedAt
+  likes     QuackLike[]
+  likeCount Int         @default(0)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @default(now()) @updatedAt
 
   @@index([userId])
   @@index([parentId])
   @@map("quack")
+}
+
+model QuackLike {
+  quack   Quack  @relation(fields: [quackId], references: [id], onDelete: Cascade)
+  quackId String
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId  String
+
+  @@id([quackId, userId])
+  @@index([userId])
+  @@map("quack_like")
 }
 
 enum PollResultsVisibility {
@@ -192,6 +205,7 @@ model User {
   sessions      Session[]
   accounts      Account[]
   quacks        Quack[]
+  quackLikes    QuackLike[]
   pollOptions   PollOption[]
   pollVotes     PollVote[]
   role          UserRole     @default(user)

@@ -6,6 +6,7 @@ import {
   Quack as PrismaQuack,
   User as PrismaUser,
 } from '@/generated/prisma/client';
+import { LikeSummary, toLikeSummary } from '@/modules/quack/domain/like';
 import {
   normalizePollOption,
   PollResultsVisibility,
@@ -26,6 +27,7 @@ const mapPrismaQuackToDomain = (
     user?: PrismaUser;
     poll?: (PrismaPoll & { options: PrismaPollOption[] }) | null;
     _count?: { replies: number };
+    likes?: { userId: string }[];
   },
   pollStats: PollStats = NO_POLL_STATS,
 ): Quack => ({
@@ -48,6 +50,11 @@ const mapPrismaQuackToDomain = (
   parentId: quack.parentId,
   deleted: quack.deletedAt !== null,
   replyCount: quack._count?.replies ?? 0,
+  likes: toLikeSummary(
+    quack.deletedAt !== null,
+    quack.likeCount,
+    Boolean(quack.likes?.length),
+  ),
 });
 
 const WITH_USER_AND_POLL = {
@@ -55,6 +62,11 @@ const WITH_USER_AND_POLL = {
   poll: { include: { options: true } },
   _count: { select: { replies: true } },
 } satisfies Prisma.QuackInclude;
+
+const viewerLike = (viewerId: string): Prisma.Quack$likesArgs => ({
+  where: { userId: viewerId },
+  select: { userId: true },
+});
 
 // Prisma hands `contains` to ILIKE as it is, so a typed %, _ or \ would act as a
 // wildcard instead of matching itself.
@@ -101,7 +113,7 @@ export class QuackRepository {
             ...(authorId ? [{ userId: authorId }] : []),
           ],
         },
-        include: WITH_USER_AND_POLL,
+        include: { ...WITH_USER_AND_POLL, likes: viewerLike(viewerId) },
         orderBy: { createdAt: 'desc' },
       });
       const pollIds = quacks.flatMap((quack) =>
@@ -158,15 +170,48 @@ export class QuackRepository {
     return mapPrismaQuackToDomain(quack);
   }
 
-  // The replies to a quack, oldest first. Replies carry no poll, so there are
-  // no poll numbers to read.
-  async getReplies(parentId: string): Promise<Quack[]> {
-    const replies = await this.prisma.quack.findMany({
-      where: { parentId },
-      include: WITH_USER_AND_POLL,
-      orderBy: { createdAt: 'asc' },
-    });
+  async getReplies(parentId: string, viewerId: string): Promise<Quack[]> {
+    const replies = await this.prisma.$transaction(
+      (tx) =>
+        tx.quack.findMany({
+          where: { parentId },
+          include: { ...WITH_USER_AND_POLL, likes: viewerLike(viewerId) },
+          orderBy: { createdAt: 'asc' },
+        }),
+      CONSISTENT_READ,
+    );
     return replies.map((reply) => mapPrismaQuackToDomain(reply));
+  }
+
+  async setLike(
+    quackId: string,
+    userId: string,
+    liked: boolean,
+  ): Promise<LikeSummary | null> {
+    return this.prisma.$transaction(async (tx) => {
+      // Share the quack row lock with deletion so a like can't arrive after
+      // the placeholder's likes have been cleared.
+      const rows = await tx.$queryRaw<{ id: string }[]>`
+        SELECT "id" FROM "quack"
+        WHERE "id" = ${quackId} AND "deletedAt" IS NULL
+        FOR NO KEY UPDATE
+      `;
+      if (rows.length === 0) return null;
+
+      if (liked) {
+        await tx.quackLike.createMany({
+          data: { quackId, userId },
+          skipDuplicates: true,
+        });
+      } else {
+        await tx.quackLike.deleteMany({ where: { quackId, userId } });
+      }
+      const { likeCount } = await tx.quack.findUniqueOrThrow({
+        where: { id: quackId },
+        select: { likeCount: true },
+      });
+      return { count: likeCount, likedByMe: liked };
+    });
   }
 
   async createReply(reply: {
@@ -221,6 +266,7 @@ export class QuackRepository {
           where: { id: quackId },
           data: { text: '', mood: null, deletedAt: new Date() },
         });
+        await tx.quackLike.deleteMany({ where: { quackId } });
         return;
       }
 

@@ -3,10 +3,10 @@ export type LikeSummary = {
   likedByMe: boolean;
 };
 
-export const toLikeSummary: (
+export function toLikeSummary(
   deleted: boolean,
   count: number,
   likedByMe: boolean,
-) => LikeSummary | null = () => {
-  throw new Error('not implemented');
-};
+): LikeSummary | null {
+  return deleted ? null : { count, likedByMe };
+}

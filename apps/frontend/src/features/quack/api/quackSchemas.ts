@@ -48,6 +48,13 @@ export const pollSchema = z.object({
 
 export type Poll = z.infer<typeof pollSchema>
 
+export const likeSummarySchema = z.object({
+  count: z.number().int().nonnegative(),
+  likedByMe: z.boolean(),
+})
+
+export type LikeSummary = z.infer<typeof likeSummarySchema>
+
 export const quackSchema = z.object({
   id: z.string(),
   text: z.string(),
@@ -64,6 +71,7 @@ export const quackSchema = z.object({
   // mood and poll are null.
   deleted: z.boolean().default(false),
   replyCount: z.number().int().default(0),
+  likes: likeSummarySchema.nullish(),
 })
 
 export const quacksSchema = z.array(quackSchema)

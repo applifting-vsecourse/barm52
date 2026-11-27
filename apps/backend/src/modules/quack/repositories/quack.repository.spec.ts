@@ -34,6 +34,7 @@ const aPrismaQuack = (
   updatedAt: new Date('2026-01-01T12:00:00Z'),
   parentId: null,
   deletedAt: null,
+  likeCount: 0,
   user: aPrismaUser(),
   ...overrides,
 });

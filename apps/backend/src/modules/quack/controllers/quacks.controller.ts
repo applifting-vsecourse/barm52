@@ -108,7 +108,7 @@ export class QuacksController {
     @User() user: Identity,
     @Param('id') id: string,
   ): Promise<QuackResponseDto[]> {
-    const replies = await this.quacksService.getReplies(id);
+    const replies = await this.quacksService.getReplies(id, user.id);
     return replies.map((reply) => QuackResponseDto.fromDomain(reply, user.id));
   }
 
