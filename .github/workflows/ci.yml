@@ -114,7 +114,7 @@ jobs:
       - run: pnpm frontend exec playwright install --with-deps chromium
       - name: Start the app and run Playwright
         run: |
-          pnpm backend exec node --env-file=.env dist/main > "$RUNNER_TEMP/backend.log" 2>&1 &
+          (cd apps/backend && exec node --env-file=.env dist/main) > "$RUNNER_TEMP/backend.log" 2>&1 &
           backend_pid=$!
           pnpm frontend start --strictPort --port 3050 > "$RUNNER_TEMP/frontend.log" 2>&1 &
           frontend_pid=$!
