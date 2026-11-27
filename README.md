@@ -49,7 +49,8 @@ Verification/reset emails are printed to the backend terminal (console mailer) u
 ```shell
 pnpm check-all                     # lint + type-check + tests + builds (what CI runs)
 pnpm backend test                  # backend unit tests (jest)
-pnpm backend test:db               # backend tests against a real Postgres (own quacker_test database, not in CI)
+pnpm backend test:int              # Supertest API tests with real sessions and the quacker_test database
+pnpm backend test:db               # repository tests with the same separate quacker_test database
 pnpm frontend test:ci              # frontend component tests (vitest)
 pnpm frontend e2e                  # end-to-end tests (Playwright) against the running app from pnpm dev
 pnpm backend prisma:migrations:run # create + apply a migration after schema changes
