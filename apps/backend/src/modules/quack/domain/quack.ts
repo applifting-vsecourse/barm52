@@ -1,3 +1,4 @@
+import { LikeSummary } from './like';
 import { Poll } from './poll';
 
 // The one list of moods. The DTOs validate against it and the repository maps
@@ -28,6 +29,7 @@ export type Quack = {
   // only the placeholder is left (docs/adr/0001).
   deleted?: boolean;
   replyCount?: number;
+  likes?: LikeSummary | null;
 };
 
 // What deleting or replying needs to know about a quack, without its content.

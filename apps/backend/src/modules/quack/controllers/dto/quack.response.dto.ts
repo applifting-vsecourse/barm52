@@ -1,6 +1,8 @@
+import { toLikeSummary } from '@/modules/quack/domain/like';
 import { toPollView } from '@/modules/quack/domain/poll';
 import { Mood, MOODS, Quack } from '@/modules/quack/domain/quack';
 import { ApiProperty } from '@nestjs/swagger';
+import { LikeSummaryDto } from './like-summary.dto';
 import { PollResponseDto } from './poll.response.dto';
 
 class QuackUserDto {
@@ -56,6 +58,9 @@ export class QuackResponseDto {
   @ApiProperty({ description: 'How many replies the quack has' })
   replyCount!: number;
 
+  @ApiProperty({ type: LikeSummaryDto, nullable: true })
+  likes!: LikeSummaryDto | null;
+
   // A poll looks different to each reader, so the reader and the moment of
   // reading come along. Without a reader there is nothing to hide from.
   static fromDomain(
@@ -85,6 +90,7 @@ export class QuackResponseDto {
       parentId: quack.parentId ?? null,
       deleted: quack.deleted ?? false,
       replyCount: quack.replyCount ?? 0,
+      likes: quack.likes ?? toLikeSummary(quack.deleted ?? false, 0, false),
     };
   }
 }

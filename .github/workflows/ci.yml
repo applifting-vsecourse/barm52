@@ -50,3 +50,96 @@ jobs:
 
       - name: Build frontend
         run: pnpm frontend build
+
+  test-integration:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: quacker
+          POSTGRES_PASSWORD: quacker
+          POSTGRES_DB: quacker_test
+        ports: ['5433:5432']
+        options: >-
+          --health-cmd "pg_isready -U quacker -d quacker_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql://quacker:quacker@localhost:5433/quacker_test
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm env:check
+      - run: pnpm backend prisma:generate
+      - run: pnpm backend test:int
+      - run: pnpm backend test:db
+
+  test-e2e:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: quacker
+          POSTGRES_PASSWORD: quacker
+          POSTGRES_DB: quacker_e2e
+        ports: ['5433:5432']
+        options: >-
+          --health-cmd "pg_isready -U quacker -d quacker_e2e"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://quacker:quacker@localhost:5433/quacker_e2e
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm env:check
+      - run: pnpm backend migrate
+      - run: pnpm backend seed
+      - run: pnpm backend build
+      - run: pnpm frontend build
+      - run: pnpm frontend exec playwright install --with-deps chromium
+      - name: Start the app and run Playwright
+        run: |
+          (cd apps/backend && exec node --env-file=.env dist/main) > "$RUNNER_TEMP/backend.log" 2>&1 &
+          backend_pid=$!
+          pnpm frontend start --strictPort --port 3050 > "$RUNNER_TEMP/frontend.log" 2>&1 &
+          frontend_pid=$!
+          trap 'kill "$backend_pid" "$frontend_pid" 2>/dev/null || true' EXIT
+
+          curl --fail --silent --show-error --retry 30 --retry-delay 1 --retry-connrefused --max-time 5 http://localhost:4050/api/health
+          curl --fail --silent --show-error --retry 30 --retry-delay 1 --retry-connrefused --max-time 5 http://localhost:3050/ > /dev/null
+          pnpm frontend e2e
+      - name: Print server logs on failure
+        if: failure()
+        run: |
+          for log in "$RUNNER_TEMP/backend.log" "$RUNNER_TEMP/frontend.log"; do
+            if [ -f "$log" ]; then cat "$log"; fi
+          done
+
+  # Advisory: leave this job out of required status checks in branch protection.
+  test-changes:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Check for removed or rewritten test lines
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: bash scripts/check-test-changes.sh "$BASE_SHA"

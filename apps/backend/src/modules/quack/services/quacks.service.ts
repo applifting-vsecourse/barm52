@@ -1,3 +1,4 @@
+import { LikeSummary } from '@/modules/quack/domain/like';
 import {
   POLL_LENGTH_MS,
   PollLength,
@@ -63,10 +64,20 @@ export class QuacksService {
     await this.quackRepository.deleteQuack(quackId);
   }
 
-  async getReplies(quackId: string): Promise<Quack[]> {
+  async setLike(
+    user: Identity,
+    quackId: string,
+    liked: boolean,
+  ): Promise<LikeSummary> {
+    const summary = await this.quackRepository.setLike(quackId, user.id, liked);
+    if (!summary) throw quackNotFound();
+    return summary;
+  }
+
+  async getReplies(quackId: string, viewerId: string): Promise<Quack[]> {
     const quack = await this.quackRepository.getQuackState(quackId);
     if (!quack) throw quackNotFound();
-    return this.quackRepository.getReplies(quackId);
+    return this.quackRepository.getReplies(quackId, viewerId);
   }
 
   // Replies go one level deep: only a top-level quack that hasn't been deleted
