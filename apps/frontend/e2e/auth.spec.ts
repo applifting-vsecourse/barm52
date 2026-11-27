@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test"
 
 import { signIn } from "./signIn"
 
-test("signed-out visitor is sent to the login page", async ({ page }) => {
+test("signed-out visitor is redirected to the login page", async ({ page }) => {
   await page.goto("/quacks")
   await expect(page).toHaveURL(/\/login/)
 })
